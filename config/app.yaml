@@ -1,0 +1,7 @@
+# Default configuration
+# the development environment use configuration file [app.dev.yaml]
+# the production environment use configuration file [app.prod.yaml]
+# the environment configuration will merge with default configuration
+server:
+  domain: localhost
+  port: 6636
