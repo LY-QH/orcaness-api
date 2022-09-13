@@ -5,3 +5,10 @@
 server:
   domain: localhost
   port: 6636
+db:
+  host: 112.74.186.96
+  port: 33066
+  username: web
+  password: Web@2022
+  database: orcaness
+  charset: utf8mb4

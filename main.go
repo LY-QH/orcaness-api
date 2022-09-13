@@ -37,8 +37,15 @@ func main() {
 		for key, value := range newConfig {
 			if strings.HasPrefix(fmt.Sprintf("%T", value), "map") {
 				for subKey, subValue := range value.(map[string]interface{}) {
+					if defaultConfig[key] == nil {
+						defaultConfig[key] = map[string]interface{}{}
+					}
+
 					if strings.HasPrefix(fmt.Sprintf("%T", subValue), "map") {
 						for childSubKey, childSubValue := range subValue.(map[string]interface{}) {
+							if defaultConfig[key].(map[string]interface{})[subKey] == nil {
+								defaultConfig[key].(map[string]interface{})[subKey] = map[string]interface{}{}
+							}
 							defaultConfig[key].(map[string]interface{})[subKey].(map[string]interface{})[childSubKey] = childSubValue
 						}
 					} else {
