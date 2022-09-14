@@ -191,9 +191,9 @@ func generateModel(table string) {
 			for _, key := range keyList {
 				if key.Column_name == row.Field {
 					if key.Key_name == "PRIMARY" {
-						keyIndex = ";primarykey"
+						keyIndex += ";primarykey"
 					} else {
-						keyIndex = ";index:" + key.Key_name
+						keyIndex += ";index:" + key.Key_name
 						if key.Non_unique == "0" {
 							keyIndex += ",unique"
 						}
