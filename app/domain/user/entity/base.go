@@ -1,4 +1,4 @@
-package UserDomain
+package Entity
 
 import (
   "time"

@@ -240,7 +240,7 @@ func generateModel(table string) {
 			includeText = "\n  \"gorm.io/datatypes\"\n"
 		}
 
-		text := fmt.Sprintf("package %sDomain\n\nimport (\n  \"time\"\n%s)\n\n", strings.ToUpper(domain[0:1])+domain[1:], includeText) + strings.Join(modelText, "\n")
+		text := fmt.Sprintf("package Entity\n\nimport (\n  \"time\"\n%s)\n\n", includeText) + strings.Join(modelText, "\n")
 		path := fmt.Sprintf("../app/domain/%s/entity", domain)
 		err := os.MkdirAll(path, 0755)
 		if err != nil {

@@ -1,9 +1,18 @@
-package UserDomain
+package Service
 
-import entity "orcaness.com/api/app/domain/user/entity"
+import (
+	"log"
 
-func GetInfoByUID(uid string) entity.UserBase {
-	userEntity := entity.UserBase{}
-	userEntity.Uid = "70B70602-FC7E-472C-876B-9FEFBE027E5E"
+	Entity "orcaness.com/api/app/domain/user/entity"
+	Repository "orcaness.com/api/app/domain/user/repository"
+)
+
+// GetInfo Get user info by uid
+func GetInfo(uid string) Entity.UserBase {
+	repos := Repository.User{}
+	userEntity, err := repos.QueryUser("70B70602-FC7E-472C-876B-9FEFBE027E5E")
+	if err != nil {
+		log.Fatal(err)
+	}
 	return userEntity
 }

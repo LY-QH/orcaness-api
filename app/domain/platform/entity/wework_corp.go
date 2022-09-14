@@ -1,4 +1,4 @@
-package PlatformDomain
+package Entity
 
 import (
   "time"
