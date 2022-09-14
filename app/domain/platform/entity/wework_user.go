@@ -1,4 +1,4 @@
-package WeworkDomain
+package PlatformDomain
 
 import (
   "time"
@@ -6,8 +6,8 @@ import (
   "gorm.io/datatypes"
 )
 
-// WeworkUser
-type WeworkUser struct {
+// PlatformWeworkUser
+type PlatformWeworkUser struct {
   Id               uint           `gorm:"column:id;type:int unsigned;not null;primarykey" json:"id"`
   Uid              string         `gorm:"column:uid;type:varchar(36);not null" json:"uid"`                                       // user uid
   Userid           string         `gorm:"column:userid;type:varchar(100);not null" json:"userid"`                                // wework userid
@@ -40,6 +40,6 @@ type WeworkUser struct {
 }
 
 // Table name
-func (m *WeworkUser) TableName() string {
-  return "wework_user"
+func (m *PlatformWeworkUser) TableName() string {
+  return "platform_wework_user"
 }

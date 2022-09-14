@@ -1,11 +1,11 @@
-package WeworkDomain
+package PlatformDomain
 
 import (
   "time"
 )
 
-// WeworkCorp
-type WeworkCorp struct {
+// PlatformWeworkCorp
+type PlatformWeworkCorp struct {
   Id         string    `gorm:"column:id;type:smallint;not null;primarykey" json:"id"`
   Name       string    `gorm:"column:name;type:varchar(128);not null" json:"name"`                   // 企业名称
   Corpid     string    `gorm:"column:corpid;type:varchar(100);not null" json:"corpid"`               // 企业id
@@ -16,6 +16,6 @@ type WeworkCorp struct {
 }
 
 // Table name
-func (m *WeworkCorp) TableName() string {
-  return "wework_corp"
+func (m *PlatformWeworkCorp) TableName() string {
+  return "platform_wework_corp"
 }

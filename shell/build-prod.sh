@@ -1,3 +1,7 @@
+#!/bin/bash
+dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
+cd $dir/..
+
 config_file=config/app.prod.yaml
 
 if [ ! -f $config_file ]; then
