@@ -84,8 +84,7 @@ func generateModel(table string) {
 		return
 	}
 	domain := strArrs[0]
-	typeName := strArrs[arrLen-1]
-	modelName := strings.Join(strArrs[1:len(strArrs)-1], "_")
+	modelName := strings.Join(strArrs[1:], "_")
 
 	var tableStruct []struct {
 		Field   string
@@ -242,7 +241,7 @@ func generateModel(table string) {
 		}
 
 		text := fmt.Sprintf("package %sDomain\n\nimport (\n  \"time\"\n%s)\n\n", strings.ToUpper(domain[0:1])+domain[1:], includeText) + strings.Join(modelText, "\n")
-		path := fmt.Sprintf("../app/domain/%s/%s", domain, typeName)
+		path := fmt.Sprintf("../app/domain/%s/entity", domain)
 		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			fmt.Print(err)
