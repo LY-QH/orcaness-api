@@ -98,14 +98,18 @@ func generateModel(table string) {
 
 	if len(tableStruct) > 0 {
 		tableNameCaptal := ""
+		sTableNameCaptal := ""
 
 		for _, str := range strArrs {
 			tableNameCaptal += strings.ToUpper(str[0:1]) + str[1:]
+			sTableNameCaptal += strings.ToLower(str[0:1]) + str[1:]
 		}
 
 		modelText := []string{
-			fmt.Sprintf("// %s\ntype %s struct {", tableNameCaptal, tableNameCaptal),
+			fmt.Sprintf("// %s\ntype %s struct {", tableNameCaptal, sTableNameCaptal),
 		}
+
+		methodText := []string{}
 
 		// comment
 		var commentList []struct {
@@ -220,6 +224,18 @@ func generateModel(table string) {
 			}
 
 			fieldLines = append(fieldLines, []string{fieldNameCaptal, fieldType, column, comment})
+
+			// method text
+			if row.Field == "id" || row.Field == "created_at" || row.Field == "updated_at" || row.Field == "deleted_at" {
+				continue
+			}
+
+			methodText = append(methodText, fmt.Sprintf("// Get/Set %s\nfunc (m *%s) %s(v ...%s) %s {", fieldNameCaptal, tableNameCaptal, fieldNameCaptal, fieldType, fieldType))
+			methodText = append(methodText, "  if len(v) == 1 {")
+			methodText = append(methodText, fmt.Sprintf(`    new%s.%s = v[0]`, tableNameCaptal, fieldNameCaptal))
+			methodText = append(methodText, "  }\n")
+			methodText = append(methodText, fmt.Sprintf("  return new%s.%s", tableNameCaptal, fieldNameCaptal))
+			methodText = append(methodText, "}\n")
 		}
 
 		for _, fieldLine := range fieldLines {
@@ -231,9 +247,23 @@ func generateModel(table string) {
 		}
 
 		modelText = append(modelText, "}\n")
+
+		modelText = append(modelText, fmt.Sprintf("type %s struct {\n\n}\n", tableNameCaptal))
+		modelText = append(modelText, fmt.Sprintf("var new%s %s\n", tableNameCaptal, sTableNameCaptal))
+
 		modelText = append(modelText, fmt.Sprintf("// Table name\nfunc (m *%s) TableName() string {", tableNameCaptal))
 		modelText = append(modelText, fmt.Sprintf(`  return "%s"`, table))
 		modelText = append(modelText, "}\n")
+
+		modelText = append(modelText, fmt.Sprintf("// Create\nfunc (m *%s) Create() %s {", tableNameCaptal, tableNameCaptal))
+		modelText = append(modelText, fmt.Sprintf(`  new%s.Id = 0`, tableNameCaptal))
+		modelText = append(modelText, "  return *m")
+		modelText = append(modelText, "}\n")
+
+		// methods
+		for _, method := range methodText {
+			modelText = append(modelText, method)
+		}
 
 		includeText := ""
 		if includeDataTypes {
