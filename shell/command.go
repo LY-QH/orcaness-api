@@ -105,7 +105,7 @@ func generateModel(table string) {
 		}
 
 		modelText := []string{
-			fmt.Sprintf("// %s\ntype %s struct {\n  gorm.Model", tableNameCaptal, tableNameCaptal),
+			fmt.Sprintf("// %s\ntype %s struct {", tableNameCaptal, tableNameCaptal),
 		}
 
 		// comment
@@ -115,6 +115,16 @@ func generateModel(table string) {
 		}
 
 		db().Raw("select COLUMN_NAME, COLUMN_COMMENT from information_schema.columns where table_schema = ? and table_name = ?", viper.GetString("db.database"), table).Find(&commentList)
+
+		// keys
+		var keyList []struct {
+			Non_unique  string
+			Key_name    string
+			Column_name string
+			Index_type  string
+		}
+
+		db().Raw("show index from " + table).Find(&keyList)
 
 		// count chars
 		chars := []int{0, 1, 2}
@@ -177,14 +187,33 @@ func generateModel(table string) {
 				}
 			}
 
+			keyIndex := ""
+			for _, key := range keyList {
+				if key.Column_name == row.Field {
+					if key.Key_name == "PRIMARY" {
+						keyIndex = ";primarykey"
+					} else {
+						keyIndex = ";index:" + key.Key_name
+						if key.Non_unique == "0" {
+							keyIndex += ",unique"
+						}
+						if key.Index_type == "FULLTEXT" {
+							keyIndex += ",class:FULLTEXT"
+						}
+					}
+					break
+				}
+			}
+
 			comment := ""
 			for _, cmt := range commentList {
 				if cmt.COLUMN_NAME == row.Field && cmt.COLUMN_COMMENT != "" {
 					comment = " // " + cmt.COLUMN_COMMENT
+					break
 				}
 			}
 
-			column := fmt.Sprintf(`gorm:"column:%s;type:%s%s%s" json:"%s"`, row.Field, row.Type, allowNull, defaultValue, strings.ToLower(fieldNameCaptal[0:1])+fieldNameCaptal[1:])
+			column := fmt.Sprintf(`gorm:"column:%s;type:%s%s%s%s" json:"%s"`, row.Field, row.Type, allowNull, defaultValue, keyIndex, strings.ToLower(fieldNameCaptal[0:1])+fieldNameCaptal[1:])
 
 			columnChars := len(column)
 			if chars[2] < columnChars {
@@ -209,17 +238,17 @@ func generateModel(table string) {
 
 		includeText := ""
 		if includeDataTypes {
-			includeText = `"gorm.io/datatypes"\n  `
+			includeText = "\n  \"gorm.io/datatypes\"\n"
 		}
 
-		text := fmt.Sprintf("package %sDomain\n\nimport (\n  \"time\"\n\n  %s\"gorm.io/gorm\"\n)\n\n", strings.ToUpper(domain[0:1])+domain[1:], includeText) + strings.Join(modelText, "\n")
+		text := fmt.Sprintf("package %sDomain\n\nimport (\n  \"time\"\n%s)\n\n", strings.ToUpper(domain[0:1])+domain[1:], includeText) + strings.Join(modelText, "\n")
 		path := fmt.Sprintf("../app/domain/%s/%s", domain, typeName)
-		err := os.MkdirAll(path, 0644)
+		err := os.MkdirAll(path, 0755)
 		if err != nil {
 			fmt.Print(err)
 			return
 		}
-		err = os.WriteFile(path+"/"+modelName+".go", []byte(text), 0644)
+		err = os.WriteFile(path+"/"+modelName+".go", []byte(text), 0755)
 		if err != nil {
 			fmt.Print(err)
 		}
