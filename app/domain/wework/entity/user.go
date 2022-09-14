@@ -11,7 +11,7 @@ type WeworkUser struct {
   Id               uint           `gorm:"column:id;type:int unsigned;not null;primarykey" json:"id"`
   Uid              string         `gorm:"column:uid;type:varchar(36);not null" json:"uid"`                                       // user uid
   Userid           string         `gorm:"column:userid;type:varchar(100);not null" json:"userid"`                                // wework userid
-  Corpid           int            `gorm:"column:corpid;type:int" json:"corpid"`
+  Corpid           uint           `gorm:"column:corpid;type:int unsigned;not null;default:0" json:"corpid"`
   Name             string         `gorm:"column:name;type:varchar(100);not null" json:"name"`
   Alias            string         `gorm:"column:alias;type:varchar(100)" json:"alias"`
   Mobile           string         `gorm:"column:mobile;type:varchar(15)" json:"mobile"`
