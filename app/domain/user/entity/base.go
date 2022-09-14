@@ -4,8 +4,8 @@ import (
   "time"
 )
 
-// UserBaseEntity
-type UserBaseEntity struct {
+// UserBase
+type UserBase struct {
   Id        uint      `gorm:"column:id;type:int unsigned;not null;primarykey" json:"id"`
   Uid       string    `gorm:"column:uid;type:varchar(36);not null" json:"uid"`                                                      // uuid
   Name      string    `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                    // 用户名
@@ -19,6 +19,6 @@ type UserBaseEntity struct {
 }
 
 // Table name
-func (m *UserBaseEntity) TableName() string {
-  return "user_base_entity"
+func (m *UserBase) TableName() string {
+  return "user_base"
 }

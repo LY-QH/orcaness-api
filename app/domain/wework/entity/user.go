@@ -6,8 +6,8 @@ import (
   "gorm.io/datatypes"
 )
 
-// WeworkUserEntity
-type WeworkUserEntity struct {
+// WeworkUser
+type WeworkUser struct {
   Id               uint           `gorm:"column:id;type:int unsigned;not null;primarykey" json:"id"`
   Uid              string         `gorm:"column:uid;type:varchar(36);not null" json:"uid"`                                       // user uid
   Userid           string         `gorm:"column:userid;type:varchar(100);not null" json:"userid"`                                // wework userid
@@ -40,6 +40,6 @@ type WeworkUserEntity struct {
 }
 
 // Table name
-func (m *WeworkUserEntity) TableName() string {
-  return "wework_user_entity"
+func (m *WeworkUser) TableName() string {
+  return "wework_user"
 }
