@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	"orcaness.com/api/app"
 )
 
 func main() {
@@ -66,7 +67,7 @@ func main() {
 	router := gin.Default()
 
 	router.Use(CORSMiddleware())
-	CollectRoute(router)
+	app.CollectRoute(router)
 
 	router.Run(":" + viper.GetString("server.port"))
 }

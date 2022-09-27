@@ -255,9 +255,9 @@ func generateModel(table string) {
 		modelText = append(modelText, fmt.Sprintf(`  return "%s"`, table))
 		modelText = append(modelText, "}\n")
 
-		modelText = append(modelText, fmt.Sprintf("// Create\nfunc (m *%s) Create() %s {", tableNameCaptal, tableNameCaptal))
+		modelText = append(modelText, fmt.Sprintf("// Create\nfunc (m *%s) Create() *%s {", tableNameCaptal, tableNameCaptal))
 		modelText = append(modelText, fmt.Sprintf(`  new%s.Id = 0`, tableNameCaptal))
-		modelText = append(modelText, "  return *m")
+		modelText = append(modelText, "  return m")
 		modelText = append(modelText, "}\n")
 
 		// methods
