@@ -29,6 +29,19 @@ func Db(resource ...string) *gorm.DB {
 		// 从配置文件中获取参数
 		prefix := "database." + rs + "."
 		host := viper.GetString(prefix + "host")
+
+		// 如果没有对应的配置，读取默认配置
+		if host == "" && rs != "default" {
+			rs = "default"
+
+			if _db[rs] != nil {
+				return _db[rs]
+			}
+
+			prefix = "database." + rs + "."
+			host = viper.GetString(prefix + "host")
+		}
+
 		port := viper.GetString(prefix + "port")
 		database := viper.GetString(prefix + "name")
 		username := viper.GetString(prefix + "username")

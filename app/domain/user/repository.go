@@ -17,14 +17,14 @@ func NewRepository() *Repository {
 // Get one entity by id
 func (this *Repository) Get(id string) (*Entity, error) {
 	entity := &Entity{Id: id}
-	infra.Db().First(entity)
+	infra.Db("read").First(entity)
 	return entity, nil
 }
 
 // Get entity list by query condition
 func (this *Repository) GetAll(query ...interface{}) (*[]Entity, error) {
 	entities := &[]Entity{}
-	db := infra.Db()
+	db := infra.Db("read")
 	if len(query) > 0 {
 		var args []interface{}
 		for i, q := range query {
@@ -41,7 +41,7 @@ func (this *Repository) GetAll(query ...interface{}) (*[]Entity, error) {
 
 // Get total number of entity by query condition
 func (this *Repository) Count(query ...interface{}) (int64, error) {
-	db := infra.Db().Model(Entity{})
+	db := infra.Db("read").Model(Entity{})
 	if len(query) > 0 {
 		var args []interface{}
 		for i, q := range query {
@@ -64,7 +64,7 @@ func (this *Repository) Save(userEntity *Entity) error {
 		return nil
 	}
 
-	infra.Db().Save(userEntity)
+	infra.Db("write").Save(userEntity)
 	this.PublishEvents(userEntity.Events)
 	return nil
 
@@ -77,6 +77,7 @@ func (this *Repository) Remove(userEntity *Entity) error {
 	}
 
 	userEntity.PushEvent("Removed")
+	infra.Db("write").Save(userEntity)
 	this.PublishEvents(userEntity.Events)
 	return nil
 }
