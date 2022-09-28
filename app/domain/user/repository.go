@@ -16,8 +16,8 @@ func NewRepository() *Repository {
 
 // Get one entity by id
 func (this *Repository) Get(id string) (*Entity, error) {
-	entity := &Entity{Id: id}
-	infra.Db("read").First(entity)
+	entity := &Entity{}
+	infra.Db("read").Where("id = ?", id).First(entity)
 	return entity, nil
 }
 

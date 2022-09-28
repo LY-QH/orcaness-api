@@ -10,60 +10,40 @@ import (
 )
 
 var (
-	repository = NewRepository()
+	service = NewService()
 )
 
 func Router(router *gin.Engine) {
 	group := router.Group(util.GetPackPath())
 	{
-		group.GET("detail/:uid", func(c *gin.Context) {
-			userEntity, errcode := NewEntity("andrew", "13510966337", "122238937@qq.com", "")
-			if errcode.Code != 0 {
-				fmt.Print(errcode)
+		group.GET("detail/:id", func(c *gin.Context) {
+			vo, err := service.Detail(c.Param("id"))
+			if err != nil {
+				fmt.Println(err)
 			}
-			c.JSON(200, userEntity)
+
+			c.JSON(200, vo)
 		})
 
 		group.POST("create", func(c *gin.Context) {
-			user, errcode := NewEntity("liyiqua", "13510966338", "122238938@qq.com")
-			if errcode.Code != 0 {
-				fmt.Println(errcode)
-			}
-
-			if err := repository.Save(user); err != nil {
+			id, err := service.Create(c)
+			if err != nil {
 				fmt.Println(err)
 			}
+
+			c.JSON(200, id)
 		})
 
 		group.POST("modify", func(c *gin.Context) {
-			user, err := repository.Get("user.ccpvcha7qo0nlcsdpms0")
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			user.SetToMale()
-
-			if err := repository.Save(user); err != nil {
-				fmt.Println(err)
-			}
+			// service.Modify(c)
 		})
 
 		group.GET("list", func(c *gin.Context) {
-			user, err := repository.GetAll("id = 'user.ccpvcha7qo0nlcsdpms0'")
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			c.JSON(200, user)
+			// service.List(c)
 		})
 
 		group.GET("count", func(c *gin.Context) {
-			total, err := repository.Count("id = 'user.ccpvcha7qo0nlcsdpms0'")
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			c.JSON(200, total)
+			// service.Count(c)
 		})
 	}
 }
