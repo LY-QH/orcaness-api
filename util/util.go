@@ -8,7 +8,7 @@ import (
 	"github.com/rs/xid"
 )
 
-// GetPackPath Get route prefix path for current package
+// Get route prefix path for current package
 func GetPackPath() string {
 	pc, _, _, _ := runtime.Caller(1)
 	parts := strings.Split(runtime.FuncForPC(pc).Name(), "/")
@@ -17,6 +17,7 @@ func GetPackPath() string {
 	return "/" + routerName[:len(routerName)-7] + "/"
 }
 
+// Generate Id
 func GenId(prefix ...string) string {
 	id := xid.New().String()
 	if len(prefix) == 0 {
@@ -24,4 +25,26 @@ func GenId(prefix ...string) string {
 	}
 
 	return prefix[0] + id
+}
+
+// Check string in array
+func StringInArray(elm string, arr []string) bool {
+	for _, item := range arr {
+		if item == elm {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Check number in array
+func NumberInArray(elm int, arr []int) bool {
+	for _, item := range arr {
+		if item == elm {
+			return true
+		}
+	}
+
+	return false
 }

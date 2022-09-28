@@ -5,20 +5,23 @@ import (
 	"regexp"
 	"time"
 
+	"gorm.io/gorm"
+	domain "orcaness.com/api/app/domain"
 	util "orcaness.com/api/util"
 )
 
 // Entity
 type Entity struct {
-	Id        string    `gorm:"column:id;type:char(22);not null;primarykey" json:"id"`
-	Name      string    `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                    // 用户名
-	Gender    string    `gorm:"column:gender;type:enum('0','1','2');not null;default:'0'" json:"gender"`                              // 性别，0-未知，1-男，2-女
-	Mobile    string    `gorm:"column:mobile;type:varchar(11);not null" json:"mobile"`                                                // 手机号码
-	Email     string    `gorm:"column:email;type:varchar(50);not null" json:"email"`                                                  // 邮件地址
-	Source    string    `gorm:"column:source;type:enum('wework','dingtalk','feishu','other');not null;default:'other'" json:"source"` // 来源
-	CreatedAt time.Time `gorm:"column:created_at;type:datetime;not null" json:"createdAt"`                                            // 创建时间
-	UpdatedAt time.Time `gorm:"column:updated_at;type:datetime;not null" json:"updatedAt"`                                            // 更新时间
-	DeletedAt time.Time `gorm:"column:deleted_at;type:datetime;index:idx_deletedat" json:"deletedAt"`                                 // 删除时间
+	Id        string             `gorm:"column:id;type:char(25);not null;primarykey" json:"id"`
+	Name      string             `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                    // 用户名
+	Gender    string             `gorm:"column:gender;type:enum('0','1','2');not null;default:'0'" json:"gender"`                              // 性别，0-未知，1-男，2-女
+	Mobile    string             `gorm:"column:mobile;type:varchar(11);not null" json:"mobile"`                                                // 手机号码
+	Email     string             `gorm:"column:email;type:varchar(50);not null" json:"email"`                                                  // 邮件地址
+	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','other');not null;default:'other'" json:"source"` // 来源
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
+	Events    []domain.EventBase `gorm:"-:all" json:"-"`
 }
 
 // Table name
@@ -30,6 +33,7 @@ func (this *Entity) TableName() string {
 func NewEntity(name string, mobile string, email string, source ...string) (this *Entity, err Errcode) {
 
 	this = &Entity{Id: util.GenId("user.")}
+	this.PushEvent("Created")
 
 	// name
 	if err = this.UpdateName(name); err.Code != 0 {
@@ -60,6 +64,16 @@ func NewEntity(name string, mobile string, email string, source ...string) (this
 	return this, err
 }
 
+// Push event
+func (this *Entity) PushEvent(action string) {
+	this.Events = append(this.Events, domain.EventBase{
+		Id:       util.GenId("evt."),
+		SourceId: this.Id,
+		Action:   action,
+		Time:     time.Now(),
+	})
+}
+
 // Update user's name
 func (this *Entity) UpdateName(name string) (err Errcode) {
 	nameLen := len(name)
@@ -75,6 +89,10 @@ func (this *Entity) UpdateName(name string) (err Errcode) {
 		return ERR_NAME_CONTAINS_ILLEGAL_CHARS
 	}
 
+	if this.Name != name {
+		this.PushEvent("Name updated to " + name)
+	}
+
 	this.Name = name
 	return
 }
@@ -84,6 +102,10 @@ func (this *Entity) UpdateMobile(mobile string) (err Errcode) {
 	reg := regexp.MustCompile(`1[3456789][0-9]{9}`)
 	if !reg.MatchString(mobile) {
 		return ERR_INVALID_MOBILE_FORMAT
+	}
+
+	if this.Mobile != mobile {
+		this.PushEvent("Mobile updated to " + mobile)
 	}
 
 	this.Mobile = mobile
@@ -96,29 +118,54 @@ func (this *Entity) UpdateEmail(email string) (err Errcode) {
 		return ERR_INVALID_EMAIL_FORMAT
 	}
 
+	if this.Email != email {
+		this.PushEvent("Email updated to " + email)
+	}
+
 	this.Email = email
 	return
 }
 
 // Update user's source
 func (this *Entity) UpdateSource(source string) (err Errcode) {
-	if source != "dingtalk" && source != "wework" && source != "feishu" && source != "other" {
+	if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "other"}) {
 		return ERR_INVALID_SOURCE
 	}
 
-	this.Source = source
+	if this.Source != source {
+		this.PushEvent("Source updated to " + source)
+	}
 
+	this.Source = source
 	return
 }
 
 // Set user's gender to male
 func (this *Entity) SetToMale() (err Errcode) {
+	if this.Gender != "1" {
+		this.PushEvent("Gender updated to male")
+	}
+
 	this.Gender = "1"
 	return
 }
 
 // Set user's gender to female
 func (this *Entity) SetToFemale() (err Errcode) {
+	if this.Gender != "2" {
+		this.PushEvent("Gender updated to female")
+	}
+
 	this.Gender = "2"
+	return
+}
+
+// Hide user's gender
+func (this *Entity) HideGender() (err Errcode) {
+	if this.Gender != "0" {
+		this.PushEvent("Hide gender")
+	}
+
+	this.Gender = "0"
 	return
 }

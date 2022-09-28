@@ -5,3 +5,32 @@
 server:
   domain: localhost
   port: 6636
+
+database:
+  default:
+    type: mysql
+    name: 
+    host: 
+    port: 
+    username: 
+    password: 
+    charset:
+    loc: 
+  write:
+    type: mysql
+    name: 
+    host: 
+    port: 
+    username: 
+    password: 
+    charset:
+    loc: 
+  read:
+    type: mysql
+    name: 
+    host: 
+    port: 
+    username: 
+    password: 
+    charset:
+    loc: 
