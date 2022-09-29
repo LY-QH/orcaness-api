@@ -1,6 +1,7 @@
 package user
 
 import (
+	"crypto/sha256"
 	"net/mail"
 	"regexp"
 	"time"
@@ -13,15 +14,17 @@ import (
 // Entity
 type Entity struct {
 	Id        string             `gorm:"column:id;type:char(25);not null;primarykey" json:"id"`
-	Name      string             `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                    // 用户名
-	Gender    string             `gorm:"column:gender;type:enum('0','1','2');not null;default:'0'" json:"gender"`                              // 性别，0-未知，1-男，2-女
-	Mobile    string             `gorm:"column:mobile;type:varchar(11);not null" json:"mobile"`                                                // 手机号码
-	Email     string             `gorm:"column:email;type:varchar(50);not null" json:"email"`                                                  // 邮件地址
-	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','other');not null;default:'other'" json:"source"` // 来源
+	Name      string             `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                        // 用户名
+	Avatar    string             `gorm:"column:avatar;type:varchar(255);not null;default:''"                                    json:"avatar"`     // 头像
+	Gender    string             `gorm:"column:gender;type:enum('0','1','2');not null;default:'0'" json:"gender"`                                  // 性别，0-未知，1-男，2-女
+	Mobile    string             `gorm:"column:mobile;type:varchar(11);not null" json:"mobile"`                                                    // 手机号码
+	Email     string             `gorm:"column:email;type:varchar(50);not null" json:"email"`                                                      // 邮件地址
+	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"` // 来源
 	CreatedAt time.Time          `json:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
 	Events    []domain.EventBase `gorm:"-:all" json:"-"`
+	Token     Token              `gorm:"-:all" json:"-"`
 }
 
 // Table name
@@ -52,7 +55,7 @@ func NewEntity(name string, mobile string, email string, source ...string) (this
 
 	// source
 	if len(source) == 0 {
-		source = append(source, "other")
+		source = append(source, "default")
 	}
 	if err = this.UpdateSource(source[0]); err.Code != 0 {
 		return nil, err
@@ -128,7 +131,7 @@ func (this *Entity) UpdateEmail(email string) (err Errcode) {
 
 // Update user's source
 func (this *Entity) UpdateSource(source string) (err Errcode) {
-	if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "other"}) {
+	if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
 		return ERR_INVALID_SOURCE
 	}
 
@@ -168,4 +171,47 @@ func (this *Entity) HideGender() (err Errcode) {
 
 	this.Gender = "0"
 	return
+}
+
+// Login platform
+func (this *Entity) LoginPlatform(platform string) error {
+	this.genToken(platform)
+	this.PushEvent("Logged in " + platform)
+	return nil
+}
+
+// Generate token
+func (this *Entity) genToken(platform string) {
+	token := NewToken()
+	token.UserId = this.Id
+	token.Platform = platform
+	token.Token = sha256.Sum256([]byte(this.Id + "*" + util.GenId()))
+	this.Token = token
+}
+
+//////////////// token ////////////////
+// Token
+type Token struct {
+	Id        string    `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	UserId    string    `gorm:"column:user_id;type:char(25);not null" json:"user_id"`                                                     // 用户 id
+	Token     string    `gorm:"column:avatar;type:char(64);not null"                                    json:"token"`                     // Token
+	Platform  string    `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"` // 平台
+	CreatedAt time.Time `json:"created_at"`
+	ExpiredAt time.Time `gorm:"column:expired_at;type:datetime;not null" json:"expired_at"` // 过期时间
+}
+
+// Table name
+func (this *Token) TableName() string {
+	return "user_token"
+}
+
+func NewToken() *Token {
+	return &Token{
+		Id: util.GenId("tk."),
+		ExpiredAt: time.Now().Add(90 * 24 * time.Hour),
+	}
+}
+
+func (this *Token) getToken() string {
+	return this.Token
 }

@@ -34,3 +34,8 @@ database:
     password: 
     charset:
     loc: 
+
+wework:
+  corp_id:
+  agent_id:
+  corp_secret:

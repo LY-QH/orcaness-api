@@ -47,6 +47,24 @@ func (this *Service) Create(c *gin.Context) (string, error) {
 	return "", nil
 }
 
+// Login from platform
+func (this *Service) LoginFromPlatform(mobile string, platform string) (string, error) {
+	entity, err := this.repository.GetByMobile(mobile)
+	if err != nil {
+		return "", err
+	}
+
+	err = entity.LoginPlatform(platform)
+	if err != nil {
+		return "", err
+	}
+
+	// save token
+	this.repository.SaveToken(entity)
+
+	return entity.Token.getToken(), nil
+}
+
 // Convert gender to humanized word
 func (this *Service) convertGender(gender string) string {
 	if gender == "1" {

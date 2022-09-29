@@ -1,6 +1,8 @@
 package user
 
 import (
+	"time"
+
 	domain "orcaness.com/api/app/domain"
 	infra "orcaness.com/api/app/infra"
 )
@@ -19,6 +21,25 @@ func (this *Repository) Get(id string) (*Entity, error) {
 	entity := &Entity{}
 	infra.Db("read").Where("id = ?", id).First(entity)
 	return entity, nil
+}
+
+// Get one entity by mobile
+func (this *Repository) GetByMobile(mobile string) (*Entity, error) {
+	entity := &Entity{}
+	infra.Db("read").Where("mobile = ?", mobile).First(entity)
+	return entity, nil
+}
+
+// Get one entity by token
+func (this *Repository) GetByToken(token string) (entity *Entity, err error) {
+	loc, _ := time.LoadLocation("Asia/Shanghai")
+	infra.Db("read").Where("token = ? and expired_at > ?", token, time.Now().In(loc).format(time.Format("2006-01-02 15:04:05"))).First(token)
+	if token.Id == "" {
+		return entity, nil
+	}
+
+	entity, err = this.Get(token.UserId)
+	return entity, err
 }
 
 // Get entity list by query condition
@@ -78,6 +99,13 @@ func (this *Repository) Remove(userEntity *Entity) error {
 
 	userEntity.PushEvent("Removed")
 	infra.Db("write").Save(userEntity)
+	this.PublishEvents(userEntity.Events)
+	return nil
+}
+
+// Save token
+func (this *Repository) SaveToken(userEntity *Entity) error {
+	infra.Db("write").Save(userEntity.Token)
 	this.PublishEvents(userEntity.Events)
 	return nil
 }
