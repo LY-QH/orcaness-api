@@ -5,6 +5,7 @@ import (
 	"crypto/cipher"
 	"crypto/sha1"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -68,18 +69,15 @@ func (this *Wework) Notify(c *gin.Context) (interface{}, error) {
 				return "", err
 			}
 
-			// content := decrypted[16:]
+			content := decrypted[16:]
 			// fmt.Print("decrypted:", binary.BigEndian.Uint32(content[0:4]))
-			// msg_len := binary.BigEndian.Uint32(content[0:4])
-			// if err != nil {
-			// 	fmt.Println(err)
-			// 	return
-			// }
-			// msg := content[4 : msg_len+4]
+			msg_len := binary.BigEndian.Uint32(content[0:4])
+			msg := content[4 : msg_len+4]
 			// receveid := content[msg_len+4:]
 			// fmt.Printf("msg:%s\nreceiveid:%s\n", msg, receveid)
 			// fmt.Printf("len: %d", len(content)-8)
-			return decrypted[20 : len(decrypted)-8], nil
+			// return decrypted[20 : len(decrypted)-8], nil
+			return msg, nil
 		}
 	}
 	return "", nil
