@@ -78,7 +78,8 @@ func Router(router *gin.Engine) {
 
 			switch platform {
 			case "wework":
-				wework.Notify(c)
+				// wework.Notify(c)
+				c.String(200, "OK")
 			case "dingtalk":
 				c.JSON(400, "Notify not support")
 				return

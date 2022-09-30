@@ -33,12 +33,13 @@ func (this *Repository) GetByMobile(mobile string) (*Entity, error) {
 // Get one entity by token
 func (this *Repository) GetByToken(token string) (entity *Entity, err error) {
 	loc, _ := time.LoadLocation("Asia/Shanghai")
-	infra.Db("read").Where("token = ? and expired_at > ?", token, time.Now().In(loc).format(time.Format("2006-01-02 15:04:05"))).First(token)
-	if token.Id == "" {
+	tokenObj := Token{}
+	infra.Db("read").Where("token = ? and expired_at > ?", token, time.Now().In(loc).Format("2006-01-02 15:04:05")).First(&tokenObj)
+	if tokenObj.Id == "" {
 		return entity, nil
 	}
 
-	entity, err = this.Get(token.UserId)
+	entity, err = this.Get(tokenObj.UserId)
 	return entity, err
 }
 

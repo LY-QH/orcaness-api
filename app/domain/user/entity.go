@@ -2,6 +2,7 @@ package user
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"net/mail"
 	"regexp"
 	"time"
@@ -185,8 +186,8 @@ func (this *Entity) genToken(platform string) {
 	token := NewToken()
 	token.UserId = this.Id
 	token.Platform = platform
-	token.Token = sha256.Sum256([]byte(this.Id + "*" + util.GenId()))
-	this.Token = token
+	token.Token = fmt.Sprintf("%x", sha256.Sum256([]byte(this.Id+"*"+util.GenId())))
+	this.Token = *token
 }
 
 //////////////// token ////////////////
@@ -207,7 +208,7 @@ func (this *Token) TableName() string {
 
 func NewToken() *Token {
 	return &Token{
-		Id: util.GenId("tk."),
+		Id:        util.GenId("tk."),
 		ExpiredAt: time.Now().Add(90 * 24 * time.Hour),
 	}
 }
