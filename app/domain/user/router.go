@@ -92,6 +92,30 @@ func Router(router *gin.Engine) {
 			}
 		})
 
+		// Notify
+		group.GET("notify/:platform", func(c *gin.Context) {
+			platform := c.Param("platform")
+			if !util.StringInArray(c.Param("platform"), []string{"dingtalk", "wework", "feishu", "default"}) {
+				c.JSON(400, "Invalid notify platform")
+				return
+			}
+
+			switch platform {
+			case "wework":
+				// wework.Notify(c)
+				c.String(200, "OK")
+			case "dingtalk":
+				c.JSON(400, "Notify not support")
+				return
+			case "feishu":
+				c.JSON(400, "Notify not support")
+				return
+			default:
+				c.JSON(400, "Notify not support")
+				return
+			}
+		})
+
 		// Get detail
 		group.GET("detail/:id", func(c *gin.Context) {
 			vo, err := service.Detail(c.Param("id"))
