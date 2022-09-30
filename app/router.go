@@ -31,6 +31,10 @@ func CollectRoute(router *gin.Engine) {
 	// domain
 	UserDomain.Router(router)
 
+	router.GET("/WW_verify_itwece5R90Zd84bR.txt", func(c *gin.Context) {
+		c.String(200, "itwece5R90Zd84bR")
+	})
+
 	router.NoRoute(func(c *gin.Context) {
 		c.JSON(404, body404)
 	})
