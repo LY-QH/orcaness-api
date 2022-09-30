@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	UserDomain "orcaness.com/api/app/domain/user"
@@ -31,8 +32,15 @@ func CollectRoute(router *gin.Engine) {
 	// domain
 	UserDomain.Router(router)
 
-	router.GET("/WW_verify_itwece5R90Zd84bR.txt", func(c *gin.Context) {
-		c.String(200, "itwece5R90Zd84bR")
+	// wework domain validate
+	router.GET("/WW_verify_:code", func(c *gin.Context) {
+		code := c.Param("code")
+		if !strings.HasSuffix(code, ".txt") {
+			c.JSON(404, body404)
+			return
+		}
+
+		c.String(200, code[0:len(code)-4])
 	})
 
 	router.NoRoute(func(c *gin.Context) {
