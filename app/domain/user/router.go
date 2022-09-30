@@ -102,8 +102,17 @@ func Router(router *gin.Engine) {
 
 			switch platform {
 			case "wework":
-				// wework.Notify(c)
-				c.String(200, "OK")
+				ret, err := wework.Notify(c)
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Printf("%T\n", ret)
+				if fmt.Sprintf("%T", ret) == "[]uint8" {
+					c.Data(200, "text/plain; charset=utf-8", ret.([]byte))
+					// c.String(200, "aaa")
+					return
+				}
+				c.JSON(200, ret)
 			case "dingtalk":
 				c.JSON(400, "Notify not support")
 				return
