@@ -1,4 +1,4 @@
-package user
+package corp
 
 type Errcode struct {
 	Code uint   `json:"errcode"`
@@ -7,27 +7,19 @@ type Errcode struct {
 
 var (
 	ERR_NAME_LEN_LESS_THAN_MINI_LIMIT = Errcode{
-		Code: 5001,
+		Code: 6001,
 		Msg:  "Name length less then 2 chars",
 	}
 	ERR_NAME_LEN_GREATER_THAN_MAX_LIMIT = Errcode{
-		Code: 5002,
-		Msg:  "Name length greater than 20 chars",
+		Code: 6002,
+		Msg:  "Name length greater than 100 chars",
 	}
 	ERR_NAME_CONTAINS_ILLEGAL_CHARS = Errcode{
-		Code: 5003,
-		Msg:  "Name contains illegal chars, allowed chars: [a-z,0-9,-,_,.]",
-	}
-	ERR_INVALID_MOBILE_FORMAT = Errcode{
-		Code: 5004,
-		Msg:  "Invalid mobile format",
-	}
-	ERR_INVALID_EMAIL_FORMAT = Errcode{
-		Code: 5005,
-		Msg:  "Invalid email format",
+		Code: 6003,
+		Msg:  "Name contains illegal chars",
 	}
 	ERR_INVALID_SOURCE = Errcode{
-		Code: 5005,
+		Code: 6004,
 		Msg:  "Invalid source, allowed source: [dingtalk, wework, feishu, default]",
 	}
 )

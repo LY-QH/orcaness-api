@@ -14,18 +14,19 @@ import (
 
 // Entity
 type Entity struct {
-	Id        string             `gorm:"column:id;type:char(25);not null;primarykey" json:"id"`
-	Name      string             `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                        // 用户名
-	Avatar    string             `gorm:"column:avatar;type:varchar(255);not null;default:''"                                    json:"avatar"`     // 头像
-	Gender    string             `gorm:"column:gender;type:enum('0','1','2');not null;default:'0'" json:"gender"`                                  // 性别，0-未知，1-男，2-女
-	Mobile    string             `gorm:"column:mobile;type:varchar(11);not null" json:"mobile"`                                                    // 手机号码
-	Email     string             `gorm:"column:email;type:varchar(50);not null" json:"email"`                                                      // 邮件地址
-	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"` // 来源
-	CreatedAt time.Time          `json:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at"`
-	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
-	Events    []domain.EventBase `gorm:"-:all" json:"-"`
-	Token     Token              `gorm:"-:all" json:"-"`
+	Id          string             `gorm:"column:id;type:char(25);not null;primarykey" json:"id"`
+	Name        string             `gorm:"column:name;type:varchar(20);not null" json:"name"`                                                    // 用户名
+	Avatar      string             `gorm:"column:avatar;type:varchar(255);not null;default:''"                                    json:"avatar"` // 头像
+	Gender      string             `gorm:"column:gender;type:enum('0','1','2');not null;default:'0'" json:"gender"`                              // 性别，0-未知，1-男，2-女
+	Mobile      string             `gorm:"column:mobile;type:varchar(11);not null" json:"mobile"`                                                // 手机号码
+	Email       string             `gorm:"column:email;type:varchar(50);not null" json:"email"`                                                  // 邮件地址
+	Address     string             `gorm:"column:address;type:varchar(255);not null;default:''" json:"address"`                                  // 邮件地址
+	FromSources []FromSource       `gorm:"-:all" json:"-"`                                                                                       // 来源
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt     `gorm:"index" json:"-"`
+	Events      []domain.EventBase `gorm:"-:all" json:"-"`
+	Token       Token              `gorm:"-:all" json:"-"`
 }
 
 // Table name
@@ -34,7 +35,7 @@ func (this *Entity) TableName() string {
 }
 
 // Create a new user
-func NewEntity(name string, mobile string, email string, source ...string) (this *Entity, err Errcode) {
+func NewEntity(name string, mobile string, email string, address ...string) (this *Entity, err Errcode) {
 
 	this = &Entity{Id: util.GenId("user.")}
 	this.PushEvent("Created")
@@ -54,12 +55,9 @@ func NewEntity(name string, mobile string, email string, source ...string) (this
 		return nil, err
 	}
 
-	// source
-	if len(source) == 0 {
-		source = append(source, "default")
-	}
-	if err = this.UpdateSource(source[0]); err.Code != 0 {
-		return nil, err
+	// address
+	if len(address) == 1 && address[0] != "" {
+		this.UpdateAddress(address[0])
 	}
 
 	// set Default value
@@ -94,7 +92,7 @@ func (this *Entity) UpdateName(name string) (err Errcode) {
 	}
 
 	if this.Name != name {
-		this.PushEvent("Name updated to " + name)
+		this.PushEvent("Name updated to: " + name)
 	}
 
 	this.Name = name
@@ -109,7 +107,7 @@ func (this *Entity) UpdateMobile(mobile string) (err Errcode) {
 	}
 
 	if this.Mobile != mobile {
-		this.PushEvent("Mobile updated to " + mobile)
+		this.PushEvent("Mobile updated to: " + mobile)
 	}
 
 	this.Mobile = mobile
@@ -123,31 +121,45 @@ func (this *Entity) UpdateEmail(email string) (err Errcode) {
 	}
 
 	if this.Email != email {
-		this.PushEvent("Email updated to " + email)
+		this.PushEvent("Email updated to: " + email)
 	}
 
 	this.Email = email
 	return
 }
 
+// Update user's address
+func (this *Entity) UpdateAddress(address string) (err Errcode) {
+	if address == "" {
+		return
+	}
+
+	if this.Address != address {
+		this.PushEvent("Address updated to: " + address)
+	}
+
+	this.Address = address
+	return
+}
+
 // Update user's source
 func (this *Entity) UpdateSource(source string) (err Errcode) {
-	if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
-		return ERR_INVALID_SOURCE
-	}
+	// if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
+	// 	return ERR_INVALID_SOURCE
+	// }
 
-	if this.Source != source {
-		this.PushEvent("Source updated to " + source)
-	}
+	// if this.Source != source {
+	// 	this.PushEvent("Source updated to " + source)
+	// }
 
-	this.Source = source
+	// this.Source = source
 	return
 }
 
 // Set user's gender to male
 func (this *Entity) SetToMale() (err Errcode) {
 	if this.Gender != "1" {
-		this.PushEvent("Gender updated to male")
+		this.PushEvent("Gender updated to: male")
 	}
 
 	this.Gender = "1"
@@ -157,7 +169,7 @@ func (this *Entity) SetToMale() (err Errcode) {
 // Set user's gender to female
 func (this *Entity) SetToFemale() (err Errcode) {
 	if this.Gender != "2" {
-		this.PushEvent("Gender updated to female")
+		this.PushEvent("Gender updated to: female")
 	}
 
 	this.Gender = "2"
@@ -167,7 +179,7 @@ func (this *Entity) SetToFemale() (err Errcode) {
 // Hide user's gender
 func (this *Entity) HideGender() (err Errcode) {
 	if this.Gender != "0" {
-		this.PushEvent("Hide gender")
+		this.PushEvent("Gender been hidden")
 	}
 
 	this.Gender = "0"
@@ -190,7 +202,7 @@ func (this *Entity) genToken(platform string) {
 	this.Token = *token
 }
 
-//////////////// token ////////////////
+// ////////////// token ////////////////
 // Token
 type Token struct {
 	Id        string    `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
@@ -215,4 +227,30 @@ func NewToken() *Token {
 
 func (this *Token) getToken() string {
 	return this.Token
+}
+
+// ////////////// from source ///////////////
+// From Source
+type FromSource struct {
+	Id        string         `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	CorpId    string         `gorm:"column:corp_id;type:char(25);not null" json:"corp_id"`
+	Source    string         `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
+	OpenId    string         `gorm:"column:open_id;type:varchar(100);not null;default:''" json:"open_id"`
+	IsSuper   uint8          `gorm:"column:is_super;type:tinyint;not null;default:0" json:"is_super"`
+	InGroups  []InGroup      `gorm:"-:all" json:"-"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// ////////////// in group ///////////////
+// InGroup
+type InGroup struct {
+	Id        string         `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	GroupId   string         `gorm:"column:group_id;type:char(26);not null;default:''" json:"group_id"`
+	Position  string         `gorm:"column:position;type:varchar(20);not null;default:'member'" json:"position"`
+	IsAdmin   uint8          `gorm:"column:is_admin;type:tinyint;not null;default:0" json:"is_admin"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
