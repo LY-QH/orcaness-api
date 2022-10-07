@@ -81,32 +81,32 @@ func (this *Repository) Count(query ...interface{}) (int64, error) {
 }
 
 // Persistent entity
-func (this *Repository) Save(userEntity *Entity) error {
-	if len(userEntity.Events) == 0 {
+func (this *Repository) Save(entity *Entity) error {
+	if len(entity.Events) == 0 {
 		return nil
 	}
 
-	infra.Db("write").Save(userEntity)
-	this.PublishEvents(userEntity.Events)
+	infra.Db("write").Save(entity)
+	this.PublishEvents(entity.Events)
 	return nil
 
 }
 
 // Remove entity
-func (this *Repository) Remove(userEntity *Entity) error {
-	if _, err := userEntity.DeletedAt.Value(); err == nil {
+func (this *Repository) Remove(entity *Entity) error {
+	if _, err := entity.DeletedAt.Value(); err == nil {
 		return nil
 	}
 
-	userEntity.PushEvent("Removed")
-	infra.Db("write").Save(userEntity)
-	this.PublishEvents(userEntity.Events)
+	entity.PushEvent("Removed")
+	infra.Db("write").Delete(entity)
+	this.PublishEvents(entity.Events)
 	return nil
 }
 
 // Save token
-func (this *Repository) SaveToken(userEntity *Entity) error {
-	infra.Db("write").Save(userEntity.Token)
-	this.PublishEvents(userEntity.Events)
+func (this *Repository) SaveToken(entity *Entity) error {
+	infra.Db("write").Save(entity.Token)
+	this.PublishEvents(entity.Events)
 	return nil
 }

@@ -27,15 +27,15 @@ type Entity struct {
 }
 
 type Group struct {
-	Id        string              `gorm:"column:id;type:char(26);not null;primarykey" json:"id"`
-	Name      string              `gorm:"column:name;type:varchar(100);not null;default:''" json:"name"`
-	Source    string              `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
-	SourceId  string              `gorm:"column:source_id;type:varchar(64);not null;default:''" json:"source_id"`
-	ParentId  string              `gorm:"column:parent_id;type:varchar(26);not null;default:''" json:"parent_id"`
-	CreatedAt time.Time           `json:"created_at"`
-	UpdatedAt time.Time           `json:"updated_at"`
-	DeletedAt gorm.DeletedAt      `gorm:"index" json:"-"`
-	PushEvent func(action string) `gorm:"-:all" json:"-"`
+	Id        string             `gorm:"column:id;type:char(26);not null;primarykey" json:"id"`
+	Name      string             `gorm:"column:name;type:varchar(100);not null;default:''" json:"name"`
+	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
+	SourceId  string             `gorm:"column:source_id;type:varchar(64);not null;default:''" json:"source_id"`
+	ParentId  string             `gorm:"column:parent_id;type:varchar(26);not null;default:''" json:"parent_id"`
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
+	Events    []domain.EventBase `gorm:"-:all" json:"-"`
 }
 
 type WeworkConfig struct {
@@ -60,8 +60,22 @@ func (this *Entity) TableName() string {
 	return "corp"
 }
 
+func (this *Group) TableName() string {
+	return "corp_group"
+}
+
 // Push event
 func (this *Entity) PushEvent(action string) {
+	this.Events = append(this.Events, domain.EventBase{
+		Id:       util.GenId("evt."),
+		SourceId: this.Id,
+		Action:   action,
+		Time:     time.Now(),
+	})
+}
+
+// Push event
+func (this *Group) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
 		Id:       util.GenId("evt."),
 		SourceId: this.Id,
@@ -139,25 +153,68 @@ func (this *Entity) UpdateFeishu(feishu FeishuConfig) (errcode Errcode) {
 }
 
 // Add group
-func (this *Entity) AddGroup(group Group) (errcode Errcode) {
+func (this *Entity) AddGroup(name string, source string, sourceId string, parentId string) (group *Group, errcode Errcode) {
+	group = &Group{Id: util.GenId("group.")}
+	group.PushEvent("Created")
+
+	errcode = group.ModifyName(name)
+	if errcode.Code != 0 {
+		return nil, errcode
+	}
+
+	if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
+		return nil, ERR_INVALID_SOURCE
+	}
+	group.Source = source
+
+	if source != "default" {
+		if sourceId == "" {
+			return nil, ERR_INVALID_SOURCE_ID
+		}
+
+		group.SourceId = sourceId
+		this.PushEvent("Updated source to: " + sourceId)
+	}
+
+	errcode = group.ModifyParent(parentId)
+
 	return
 }
 
-// Modify group
-func (this *Entity) ModifyGroup(group Group) (errcode Errcode) {
+// Remove group
+func (this *Entity) RemoveGroup(group *Group) error {
+	// groupLen := len(this.Groups)
+	// for i, g := range this.Groups {
+	// 	if group == &g {
+	// 		newGroups := this.Groups[0:i]
+	// 		if groupLen > i+1 {
+	// 			this.Groups = append(newGroups, this.Groups[i+1:]...)
+	// 		} else {
+	// 			this.Groups = newGroups
+	// 		}
+	// 		group.PushEvent("Removed")
+	// 		break
+	// 	}
+	// }
+	group.PushEvent("Removed")
+	return nil
+}
+
+// Modify group's name
+func (this *Group) ModifyName(name string) (errcode Errcode) {
+	this.PushEvent("Updated name to: " + name)
 	return
 }
 
-// // Update corp's source
-// func (this *Entity) UpdateSource(source string) (err Errcode) {
-// 	if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
-// 		return ERR_INVALID_SOURCE
-// 	}
+// Modify group's parent
+func (this *Group) ModifyParent(parentId string) (errcode Errcode) {
+	if parentId != "" {
+		if parentId != this.Id {
+			return ERR_INVALID_PARENT_ID
+		}
 
-// 	if this.Source != source {
-// 		this.PushEvent("Source updated to: " + source)
-// 		this.Source = source
-// 	}
-
-// 	return
-// }
+		this.ParentId = parentId
+		this.PushEvent("Updated parent id to: " + parentId)
+	}
+	return
+}

@@ -22,4 +22,12 @@ var (
 		Code: 6004,
 		Msg:  "Invalid source, allowed source: [dingtalk, wework, feishu, default]",
 	}
+	ERR_INVALID_SOURCE_ID = Errcode{
+		Code: 6005,
+		Msg:  "Invalid source id",
+	}
+	ERR_INVALID_PARENT_ID = Errcode{
+		Code: 6006,
+		Msg:  "Invalid parent id",
+	}
 )

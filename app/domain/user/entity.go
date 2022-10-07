@@ -2,6 +2,7 @@ package user
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/mail"
 	"regexp"
@@ -26,12 +27,61 @@ type Entity struct {
 	UpdatedAt   time.Time          `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt     `gorm:"index" json:"-"`
 	Events      []domain.EventBase `gorm:"-:all" json:"-"`
-	Token       Token              `gorm:"-:all" json:"-"`
+	Token       []Token            `gorm:"-:all" json:"-"`
+}
+
+// Token
+type Token struct {
+	Id        string             `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	UserId    string             `gorm:"column:user_id;type:char(25);not null" json:"userid"`
+	Token     string             `gorm:"column:avatar;type:char(64);not null"                                    json:"token"`                     // Token
+	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"` // 平台
+	CreatedAt time.Time          `json:"created_at"`
+	ExpiredAt time.Time          `gorm:"column:expired_at;type:datetime;not null" json:"expired_at"` // 过期时间
+	Events    []domain.EventBase `gorm:"-:all" json:"-"`
+}
+
+// From Source
+type FromSource struct {
+	Id        string             `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	CorpId    string             `gorm:"column:corp_id;type:char(25);not null" json:"corp_id"`
+	UserId    string             `gorm:"column:user_id;type:char(25);not null" json:"userid"`
+	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
+	OpenId    string             `gorm:"column:open_id;type:varchar(100);not null;default:''" json:"open_id"`
+	IsSuper   uint8              `gorm:"column:is_super;type:tinyint;not null;default:0" json:"is_super"`
+	InGroups  []InGroup          `gorm:"-:all" json:"-"`
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
+	Events    []domain.EventBase `gorm:"-:all" json:"-"`
+}
+
+// InGroup
+type InGroup struct {
+	Id        string         `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	GroupId   string         `gorm:"column:group_id;type:char(26);not null;default:''" json:"group_id"`
+	Position  string         `gorm:"column:position;type:varchar(20);not null;default:'member'" json:"position"`
+	IsAdmin   uint8          `gorm:"column:is_admin;type:tinyint;not null;default:0" json:"is_admin"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
 // Table name
 func (this *Entity) TableName() string {
 	return "user"
+}
+
+func (this *Token) TableName() string {
+	return "user_token"
+}
+
+func (this *FromSource) TableName() string {
+	return "user_from_source"
+}
+
+func (this *InGroup) TableName() string {
+	return "user_in_group"
 }
 
 // Create a new user
@@ -66,8 +116,55 @@ func NewEntity(name string, mobile string, email string, address ...string) (thi
 	return this, err
 }
 
+func NewToken(userId string, source string) *Token {
+	token := &Token{
+		Id:        util.GenId("tk."),
+		UserId:    userId,
+		Source:    source,
+		ExpiredAt: time.Now().Add(90 * 24 * time.Hour),
+	}
+
+	token.Token = fmt.Sprintf("%x", sha256.Sum256([]byte(token.Id+"*"+util.GenId())))
+
+	return token
+}
+
+func NewSource(corpId string, userId string, source string, openId string, isSuper uint8) *FromSource {
+	return &FromSource{
+		CorpId:  corpId,
+		UserId:  userId,
+		Source:  source,
+		OpenId:  openId,
+		IsSuper: isSuper,
+		Id:      util.GenId("us."),
+	}
+}
+
+func (this *FromSource) Remove() error {
+	this.PushEvent("Removed")
+	return nil
+}
+
 // Push event
 func (this *Entity) PushEvent(action string) {
+	this.Events = append(this.Events, domain.EventBase{
+		Id:       util.GenId("evt."),
+		SourceId: this.Id,
+		Action:   action,
+		Time:     time.Now(),
+	})
+}
+
+func (this *Token) PushEvent(action string) {
+	this.Events = append(this.Events, domain.EventBase{
+		Id:       util.GenId("evt."),
+		SourceId: this.Id,
+		Action:   action,
+		Time:     time.Now(),
+	})
+}
+
+func (this *FromSource) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
 		Id:       util.GenId("evt."),
 		SourceId: this.Id,
@@ -142,20 +239,6 @@ func (this *Entity) UpdateAddress(address string) (err Errcode) {
 	return
 }
 
-// Update user's source
-func (this *Entity) UpdateSource(source string) (err Errcode) {
-	// if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
-	// 	return ERR_INVALID_SOURCE
-	// }
-
-	// if this.Source != source {
-	// 	this.PushEvent("Source updated to " + source)
-	// }
-
-	// this.Source = source
-	return
-}
-
 // Set user's gender to male
 func (this *Entity) SetToMale() (err Errcode) {
 	if this.Gender != "1" {
@@ -186,71 +269,23 @@ func (this *Entity) HideGender() (err Errcode) {
 	return
 }
 
+func (this *Entity) AddSource(corpId string, source string, openId string, isSuper uint8) error {
+	for _, fromSource := range this.FromSources {
+		if fromSource.CorpId == corpId && fromSource.Source == source && fromSource.OpenId == openId {
+			return errors.New("Source duplicate")
+		}
+	}
+
+	this.FromSources = append(this.FromSources, *NewSource(corpId, this.Id, source, openId, isSuper))
+
+	return nil
+}
+
 // Login platform
 func (this *Entity) LoginPlatform(platform string) error {
-	this.genToken(platform)
+	// this.genToken(platform)
 	this.PushEvent("Logged in " + platform)
 	return nil
 }
 
-// Generate token
-func (this *Entity) genToken(platform string) {
-	token := NewToken()
-	token.UserId = this.Id
-	token.Platform = platform
-	token.Token = fmt.Sprintf("%x", sha256.Sum256([]byte(this.Id+"*"+util.GenId())))
-	this.Token = *token
-}
-
-// ////////////// token ////////////////
-// Token
-type Token struct {
-	Id        string    `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
-	UserId    string    `gorm:"column:user_id;type:char(25);not null" json:"user_id"`                                                     // 用户 id
-	Token     string    `gorm:"column:avatar;type:char(64);not null"                                    json:"token"`                     // Token
-	Platform  string    `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"` // 平台
-	CreatedAt time.Time `json:"created_at"`
-	ExpiredAt time.Time `gorm:"column:expired_at;type:datetime;not null" json:"expired_at"` // 过期时间
-}
-
-// Table name
-func (this *Token) TableName() string {
-	return "user_token"
-}
-
-func NewToken() *Token {
-	return &Token{
-		Id:        util.GenId("tk."),
-		ExpiredAt: time.Now().Add(90 * 24 * time.Hour),
-	}
-}
-
-func (this *Token) getToken() string {
-	return this.Token
-}
-
 // ////////////// from source ///////////////
-// From Source
-type FromSource struct {
-	Id        string         `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
-	CorpId    string         `gorm:"column:corp_id;type:char(25);not null" json:"corp_id"`
-	Source    string         `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
-	OpenId    string         `gorm:"column:open_id;type:varchar(100);not null;default:''" json:"open_id"`
-	IsSuper   uint8          `gorm:"column:is_super;type:tinyint;not null;default:0" json:"is_super"`
-	InGroups  []InGroup      `gorm:"-:all" json:"-"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-}
-
-// ////////////// in group ///////////////
-// InGroup
-type InGroup struct {
-	Id        string         `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
-	GroupId   string         `gorm:"column:group_id;type:char(26);not null;default:''" json:"group_id"`
-	Position  string         `gorm:"column:position;type:varchar(20);not null;default:'member'" json:"position"`
-	IsAdmin   uint8          `gorm:"column:is_admin;type:tinyint;not null;default:0" json:"is_admin"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-}

@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -31,6 +32,11 @@ func CollectRoute(router *gin.Engine) {
 
 	// domain
 	UserDomain.Router(router)
+
+	router.GET("/test", func(c *gin.Context) {
+		strs := []string{"a", "b", "c"}
+		fmt.Print(strs[0:2])
+	})
 
 	// wework domain validate
 	router.GET("/WW_verify_:code", func(c *gin.Context) {
