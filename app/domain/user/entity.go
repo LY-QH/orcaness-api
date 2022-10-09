@@ -281,11 +281,29 @@ func (this *Entity) AddSource(corpId string, source string, openId string, isSup
 	return nil
 }
 
-// Login platform
-func (this *Entity) LoginPlatform(platform string) error {
-	// this.genToken(platform)
-	this.PushEvent("Logged in " + platform)
-	return nil
+func (this *Entity) LoginFromWework() (string, error) {
+	return this.loginFromSource("wework")
 }
 
-// ////////////// from source ///////////////
+func (this *Entity) LoginFromDingtalk() (string, error) {
+	return this.loginFromSource("dingtalk")
+}
+
+func (this *Entity) LoginFromFeishu() (string, error) {
+	return this.loginFromSource("feishu")
+}
+
+func (this *Entity) LoginFromDefault() (string, error) {
+	return this.loginFromSource("default")
+}
+
+func (this *Entity) RevokeToken(token string) {
+
+}
+
+func (this *Entity) loginFromSource(source string) (string, error) {
+	newToken := *NewToken(this.Id, source)
+	this.Token = append(this.Token, newToken)
+	this.PushEvent("Logged in " + source)
+	return newToken.Token, nil
+}
