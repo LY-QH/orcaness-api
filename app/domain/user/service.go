@@ -2,9 +2,8 @@ package user
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 type Service struct {
@@ -35,34 +34,67 @@ func (this *Service) Detail(id string) (vo VODetail, err error) {
 }
 
 // Create user
-func (this *Service) Create(c *gin.Context) (string, error) {
-	// entity := NewEntity(c.PostForm("name"), c.PostForm())
-	// err := c.ShouldBindJSON(&entity)
-	// if err != nil {
-	// 	return "", err
-	// }
+func (this *Service) Create(name string, mobile string, email string, address string) (string, error) {
+	entity, err := NewEntity(name, mobile, email, address)
+	if err.Code != 0 {
+		return "", errors.New(err.Msg)
+	}
 
-	// entity.
+	return entity.Id, nil
+}
 
-	return "", nil
+// Remove user
+func (this *Service) Remove(entity Entity) error {
+	return this.repository.Remove(&entity)
 }
 
 // Login from platform
-func (this *Service) LoginFromPlatform(mobile string, platform string) (string, error) {
+func (this *Service) Login(mobile string, platform ...string) (string, error) {
+	if len(platform) == 0 {
+		platform[0] = "default"
+	}
+
+	if len(platform) != 1 {
+		return "", errors.New("Platform allowed only: wework, dingtalk, feishu, default or empty")
+	}
+
 	entity, err := this.repository.GetByMobile(mobile)
 	if err != nil {
-		return "", err
+		return "", nil
 	}
 
-	err = entity.LoginPlatform(platform)
+	var token string
+	switch platform[0] {
+	case "wework":
+		token, err = entity.LoginFromWework()
+	case "dingtalk":
+		token, err = entity.LoginFromDingtalk()
+	case "feishu":
+		token, err = entity.LoginFromFeishu()
+	default:
+		token, err = entity.LoginFromDefault()
+	}
+
 	if err != nil {
 		return "", err
 	}
 
-	// save token
-	this.repository.SaveToken(entity)
+	err = this.repository.Save(entity)
+	if err != nil {
+		return "", err
+	}
 
-	return entity.Token.getToken(), nil
+	return token, nil
+}
+
+// Login authentication
+func (this *Service) Verify(token string) (string, error) {
+	entity, err := this.repository.GetByToken(token)
+	if err != nil {
+		return "", err
+	}
+
+	return entity.Id, nil
 }
 
 // Convert gender to humanized word

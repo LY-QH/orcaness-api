@@ -67,20 +67,20 @@ func (this *Group) TableName() string {
 // Push event
 func (this *Entity) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
-		Id:       util.GenId("evt."),
-		SourceId: this.Id,
-		Action:   action,
-		Time:     time.Now(),
+		Id:         util.GenId("evt."),
+		ResourceId: this.Id,
+		Action:     action,
+		Time:       time.Now(),
 	})
 }
 
 // Push event
 func (this *Group) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
-		Id:       util.GenId("evt."),
-		SourceId: this.Id,
-		Action:   action,
-		Time:     time.Now(),
+		Id:         util.GenId("evt."),
+		ResourceId: this.Id,
+		Action:     action,
+		Time:       time.Now(),
 	})
 }
 
@@ -183,19 +183,6 @@ func (this *Entity) AddGroup(name string, source string, sourceId string, parent
 
 // Remove group
 func (this *Entity) RemoveGroup(group *Group) error {
-	// groupLen := len(this.Groups)
-	// for i, g := range this.Groups {
-	// 	if group == &g {
-	// 		newGroups := this.Groups[0:i]
-	// 		if groupLen > i+1 {
-	// 			this.Groups = append(newGroups, this.Groups[i+1:]...)
-	// 		} else {
-	// 			this.Groups = newGroups
-	// 		}
-	// 		group.PushEvent("Removed")
-	// 		break
-	// 	}
-	// }
 	group.PushEvent("Removed")
 	return nil
 }

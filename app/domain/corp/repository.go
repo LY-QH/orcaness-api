@@ -111,10 +111,6 @@ func (this *Repository) CountGroup(id string, query ...interface{}) (int64, erro
 
 // Persistent entity
 func (this *Repository) Save(entity *Entity) error {
-	// if len(entity.Events) == 0 {
-	// 	return nil
-	// }
-
 	events := append([]domain.EventBase{}, entity.Events...)
 
 	// save group
@@ -140,7 +136,6 @@ func (this *Repository) Save(entity *Entity) error {
 	}
 	this.PublishEvents(events)
 	return nil
-
 }
 
 // Remove entity

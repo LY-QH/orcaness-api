@@ -80,16 +80,131 @@ func (this *Repository) Count(query ...interface{}) (int64, error) {
 	return count, nil
 }
 
-// Persistent entity
-func (this *Repository) Save(entity *Entity) error {
-	if len(entity.Events) == 0 {
-		return nil
+// Get all token
+func (this *Repository) GetAllToken(userId string, query ...interface{}) (*[]Token, error) {
+	tokens := &[]Token{}
+	db := infra.Db("read")
+	if len(query) > 0 {
+		var args []interface{}
+		for i, q := range query {
+			if i > 0 {
+				args = append(args, q)
+			}
+		}
+		db = db.Where(query[0], args...)
 	}
 
-	infra.Db("write").Save(entity)
-	this.PublishEvents(entity.Events)
-	return nil
+	db.Where("user_id = ?", userId).Find(tokens)
+	return tokens, nil
+}
 
+// Get all source
+func (this *Repository) GetAllSource(userId string, query ...interface{}) (*[]FromSource, error) {
+	sources := &[]FromSource{}
+	db := infra.Db("read")
+	if len(query) > 0 {
+		var args []interface{}
+		for i, q := range query {
+			if i > 0 {
+				args = append(args, q)
+			}
+		}
+		db = db.Where(query[0], args...)
+	}
+
+	db.Where("user_id = ?", userId).Find(sources)
+	return sources, nil
+}
+
+// Get all group
+func (this *Repository) GetAllGroup(fromSourceId string, query ...interface{}) (*[]InGroup, error) {
+	groups := &[]InGroup{}
+	db := infra.Db("read")
+	if len(query) > 0 {
+		var args []interface{}
+		for i, q := range query {
+			if i > 0 {
+				args = append(args, q)
+			}
+		}
+		db = db.Where(query[0], args...)
+	}
+
+	db.Where("user_source_id = ?", fromSourceId).Find(groups)
+	return groups, nil
+}
+
+// Persistent entity
+func (this *Repository) Save(entity *Entity) error {
+	events := append([]domain.EventBase{}, entity.Events...)
+
+	// save token
+	for _, token := range entity.Tokens {
+		deleted := false
+		for _, event := range token.Events {
+			if event.Action == "Revoked" {
+				deleted = true
+				infra.Db("write").Delete(&token)
+				break
+			}
+		}
+
+		if !deleted {
+			infra.Db("write").Save(&token)
+		}
+
+		events = append(events, token.Events...)
+	}
+
+	// save source
+	for _, source := range entity.FromSources {
+		deleted := false
+		for _, event := range source.Events {
+			if event.Action == "Removed" {
+				deleted = true
+
+				// group
+				for _, group := range source.InGroups {
+					group.PushEvent("Outed")
+					events = append(events, group.Events...)
+					infra.Db("write").Delete(&group)
+				}
+
+				infra.Db("write").Delete(&source)
+				break
+			}
+		}
+
+		if !deleted {
+			infra.Db("write").Save(&source)
+
+			// group
+			for _, group := range source.InGroups {
+				deleted = false
+				for _, event := range group.Events {
+					events = append(events, event)
+					if event.Action == "Outed" {
+						deleted = true
+						infra.Db("write").Delete(&group)
+						break
+					}
+				}
+
+				if !deleted {
+					infra.Db("write").Save(&group)
+				}
+			}
+		}
+
+		events = append(events, source.Events...)
+	}
+
+	if len(entity.Events) > 0 {
+		infra.Db("write").Save(entity)
+	}
+
+	this.PublishEvents(events)
+	return nil
 }
 
 // Remove entity
@@ -98,15 +213,38 @@ func (this *Repository) Remove(entity *Entity) error {
 		return nil
 	}
 
+	events := []domain.EventBase{}
+
+	// revoke all token
+	if tokens, err := this.GetAllToken(entity.Id); err != nil && len(*tokens) > 0 {
+		for _, token := range *tokens {
+			infra.Db("write").Delete(&token)
+			token.PushEvent("Removed")
+			events = append(events, token.Events...)
+		}
+	}
+
+	// remove all source
+	if sources, err := this.GetAllSource(entity.Id); err != nil && len(*sources) > 0 {
+		for _, source := range *sources {
+			// remove ingroup
+			if groups, err := this.GetAllGroup(source.Id); err != nil && len(*groups) > 0 {
+				for _, group := range *groups {
+					infra.Db("write").Delete(&group)
+					group.PushEvent("Outed")
+					events = append(events, group.Events...)
+				}
+			}
+
+			infra.Db("write").Delete(&source)
+			source.PushEvent("Removed")
+			events = append(events, source.Events...)
+		}
+	}
+
 	entity.PushEvent("Removed")
 	infra.Db("write").Delete(entity)
-	this.PublishEvents(entity.Events)
-	return nil
-}
-
-// Save token
-func (this *Repository) SaveToken(entity *Entity) error {
-	infra.Db("write").Save(entity.Token)
-	this.PublishEvents(entity.Events)
+	events = append(events, entity.Events...)
+	this.PublishEvents(events)
 	return nil
 }

@@ -27,7 +27,7 @@ type Entity struct {
 	UpdatedAt   time.Time          `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt     `gorm:"index" json:"-"`
 	Events      []domain.EventBase `gorm:"-:all" json:"-"`
-	Token       []Token            `gorm:"-:all" json:"-"`
+	Tokens      []Token            `gorm:"-:all" json:"-"`
 }
 
 // Token
@@ -58,13 +58,15 @@ type FromSource struct {
 
 // InGroup
 type InGroup struct {
-	Id        string         `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
-	GroupId   string         `gorm:"column:group_id;type:char(26);not null;default:''" json:"group_id"`
-	Position  string         `gorm:"column:position;type:varchar(20);not null;default:'member'" json:"position"`
-	IsAdmin   uint8          `gorm:"column:is_admin;type:tinyint;not null;default:0" json:"is_admin"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Id        string             `gorm:"column:id;type:char(23);not null;primarykey" json:"id"`
+	SourceId  string             `gorm:"column:source_id;type:char(23);not null" json:"source_id"`
+	GroupId   string             `gorm:"column:group_id;type:char(26);not null;default:''" json:"group_id"`
+	Position  string             `gorm:"column:position;type:varchar(20);not null;default:'member'" json:"position"`
+	IsAdmin   uint8              `gorm:"column:is_admin;type:tinyint;not null;default:0" json:"is_admin"`
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
+	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
+	Events    []domain.EventBase `gorm:"-:all" json:"-"`
 }
 
 // Table name
@@ -140,36 +142,50 @@ func NewSource(corpId string, userId string, source string, openId string, isSup
 	}
 }
 
-func (this *FromSource) Remove() error {
-	this.PushEvent("Removed")
-	return nil
+func NewGroup(sourceId string, groupId string, position string, isAdmin uint8) *InGroup {
+	return &InGroup{
+		Id:       util.GenId("ig."),
+		SourceId: sourceId,
+		GroupId:  groupId,
+		Position: position,
+		IsAdmin:  isAdmin,
+	}
 }
 
 // Push event
 func (this *Entity) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
-		Id:       util.GenId("evt."),
-		SourceId: this.Id,
-		Action:   action,
-		Time:     time.Now(),
+		Id:         util.GenId("evt."),
+		ResourceId: this.Id,
+		Action:     action,
+		Time:       time.Now(),
 	})
 }
 
 func (this *Token) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
-		Id:       util.GenId("evt."),
-		SourceId: this.Id,
-		Action:   action,
-		Time:     time.Now(),
+		Id:         util.GenId("evt."),
+		ResourceId: this.Id,
+		Action:     action,
+		Time:       time.Now(),
 	})
 }
 
 func (this *FromSource) PushEvent(action string) {
 	this.Events = append(this.Events, domain.EventBase{
-		Id:       util.GenId("evt."),
-		SourceId: this.Id,
-		Action:   action,
-		Time:     time.Now(),
+		Id:         util.GenId("evt."),
+		ResourceId: this.Id,
+		Action:     action,
+		Time:       time.Now(),
+	})
+}
+
+func (this *InGroup) PushEvent(action string) {
+	this.Events = append(this.Events, domain.EventBase{
+		Id:         util.GenId("evt."),
+		ResourceId: this.Id,
+		Action:     action,
+		Time:       time.Now(),
 	})
 }
 
@@ -281,6 +297,15 @@ func (this *Entity) AddSource(corpId string, source string, openId string, isSup
 	return nil
 }
 
+func (this *Entity) UpdateAvatar(avatar string) error {
+	if avatar != "" {
+		this.Avatar = avatar
+		this.PushEvent("Update avatar to: " + avatar)
+	}
+
+	return nil
+}
+
 func (this *Entity) LoginFromWework() (string, error) {
 	return this.loginFromSource("wework")
 }
@@ -298,12 +323,46 @@ func (this *Entity) LoginFromDefault() (string, error) {
 }
 
 func (this *Entity) RevokeToken(token string) {
+	for _, tk := range this.Tokens {
+		if tk.Token == token {
+			tk.PushEvent("Revoked")
+			break
+		}
+	}
+}
 
+func (this *Entity) RemoveSource(source string) {
+	for _, src := range this.FromSources {
+		if src.Source == source {
+			src.PushEvent("Removed")
+			break
+		}
+	}
+}
+
+func (this *FromSource) InGroup(groupId string, position string, isAdmin bool) {
+	var isAdminInt uint8
+	if isAdmin {
+		isAdminInt = 1
+	}
+	group := NewGroup(this.Id, groupId, position, isAdminInt)
+	group.PushEvent("Created")
+	this.InGroups = append(this.InGroups, *group)
+}
+
+func (this *FromSource) OutGroup(groupId string) {
+	for _, group := range this.InGroups {
+		if group.Id == groupId {
+			group.PushEvent("Outed")
+			break
+		}
+	}
 }
 
 func (this *Entity) loginFromSource(source string) (string, error) {
 	newToken := *NewToken(this.Id, source)
-	this.Token = append(this.Token, newToken)
+	this.Tokens = append(this.Tokens, newToken)
 	this.PushEvent("Logged in " + source)
 	return newToken.Token, nil
+	return "", nil
 }
