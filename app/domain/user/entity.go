@@ -48,7 +48,7 @@ type FromSource struct {
 	UserId    string             `gorm:"column:user_id;type:char(25);not null" json:"userid"`
 	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
 	OpenId    string             `gorm:"column:open_id;type:varchar(100);not null;default:''" json:"open_id"`
-	IsSuper   uint8              `gorm:"column:is_super;type:tinyint;not null;default:0" json:"is_super"`
+	IsSuper   uint               `gorm:"column:is_super;type:tinyint;not null;default:0" json:"is_super"`
 	InGroups  []InGroup          `gorm:"-:all" json:"-"`
 	CreatedAt time.Time          `json:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
@@ -62,7 +62,6 @@ type InGroup struct {
 	SourceId  string             `gorm:"column:source_id;type:char(23);not null" json:"source_id"`
 	GroupId   string             `gorm:"column:group_id;type:char(26);not null;default:''" json:"group_id"`
 	Position  string             `gorm:"column:position;type:varchar(20);not null;default:'member'" json:"position"`
-	IsAdmin   uint8              `gorm:"column:is_admin;type:tinyint;not null;default:0" json:"is_admin"`
 	CreatedAt time.Time          `json:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
@@ -131,24 +130,28 @@ func NewToken(userId string, source string) *Token {
 	return token
 }
 
-func NewSource(corpId string, userId string, source string, openId string, isSuper uint8) *FromSource {
+func NewSource(corpId string, userId string, source string, openId string, isSuper bool) *FromSource {
+	var super uint = 0
+	if isSuper {
+		super = 1
+	}
+
 	return &FromSource{
 		CorpId:  corpId,
 		UserId:  userId,
 		Source:  source,
 		OpenId:  openId,
-		IsSuper: isSuper,
+		IsSuper: super,
 		Id:      util.GenId("us."),
 	}
 }
 
-func NewGroup(sourceId string, groupId string, position string, isAdmin uint8) *InGroup {
+func NewGroup(sourceId string, groupId string, position string) *InGroup {
 	return &InGroup{
 		Id:       util.GenId("ig."),
 		SourceId: sourceId,
 		GroupId:  groupId,
 		Position: position,
-		IsAdmin:  isAdmin,
 	}
 }
 
@@ -285,14 +288,31 @@ func (this *Entity) HideGender() (err Errcode) {
 	return
 }
 
-func (this *Entity) AddSource(corpId string, source string, openId string, isSuper uint8) error {
+func (this *Entity) AddSource(source FromSource) error {
 	for _, fromSource := range this.FromSources {
-		if fromSource.CorpId == corpId && fromSource.Source == source && fromSource.OpenId == openId {
+		if fromSource.CorpId == source.CorpId && fromSource.Source == source.Source && fromSource.OpenId == source.OpenId {
 			return errors.New("Source duplicate")
 		}
 	}
 
-	this.FromSources = append(this.FromSources, *NewSource(corpId, this.Id, source, openId, isSuper))
+	this.FromSources = append(this.FromSources, source)
+
+	return nil
+}
+
+func (this *Entity) UpdateSource(source FromSource) error {
+	updated := false
+	for i, fromSource := range this.FromSources {
+		if fromSource.CorpId == source.CorpId && fromSource.Source == source.Source && fromSource.OpenId == source.OpenId {
+			this.FromSources[i] = source
+			updated = true
+			break
+		}
+	}
+
+	if !updated {
+		this.FromSources = append(this.FromSources, source)
+	}
 
 	return nil
 }
@@ -340,22 +360,43 @@ func (this *Entity) RemoveSource(source string) {
 	}
 }
 
-func (this *FromSource) InGroup(groupId string, position string, isAdmin bool) {
-	var isAdminInt uint8
-	if isAdmin {
-		isAdminInt = 1
-	}
-	group := NewGroup(this.Id, groupId, position, isAdminInt)
+func (this *FromSource) InGroup(group InGroup) {
 	group.PushEvent("Created")
-	this.InGroups = append(this.InGroups, *group)
+	this.InGroups = append(this.InGroups, group)
 }
 
-func (this *FromSource) OutGroup(groupId string) {
-	for _, group := range this.InGroups {
-		if group.Id == groupId {
-			group.PushEvent("Outed")
+func (this *FromSource) UpdateInGroup(group InGroup, position string) {
+	group.Position = position
+	group.PushEvent("Updated position to " + position)
+
+	updated := false
+	for i, g := range this.InGroups {
+		if g.Id == group.Id {
+			this.InGroups[i] = group
+			updated = true
 			break
 		}
+	}
+
+	if !updated {
+		this.InGroups = append(this.InGroups, group)
+	}
+}
+
+func (this *FromSource) OutGroup(group InGroup) {
+	updated := false
+	for i, g := range this.InGroups {
+		if group.Id == g.Id {
+			group.PushEvent("Outed")
+			updated = true
+			this.InGroups[i] = g
+			break
+		}
+	}
+
+	if !updated {
+		g.PushEvent("Outed")
+		this.InGroups = append(this.InGroups, g)
 	}
 }
 
@@ -364,5 +405,4 @@ func (this *Entity) loginFromSource(source string) (string, error) {
 	this.Tokens = append(this.Tokens, newToken)
 	this.PushEvent("Logged in " + source)
 	return newToken.Token, nil
-	return "", nil
 }

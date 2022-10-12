@@ -2,13 +2,11 @@
 package user
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"orcaness.com/api/app/anti"
 	infra "orcaness.com/api/app/infra"
 	util "orcaness.com/api/util"
-
-	corp "orcaness.com/api/app/domain/corp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -22,7 +20,7 @@ func Router(router *gin.Engine) {
 	group := router.Group(util.GetPackPath())
 	{
 		// Login
-		group.Any("login/:source", func(c *gin.Context) {
+		group.Any("login/:source/:corpid", func(c *gin.Context) {
 			source := c.Param("source")
 			if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu", "default"}) {
 				c.JSON(400, "Invalid login source")
@@ -66,7 +64,7 @@ func Router(router *gin.Engine) {
 			}
 		})
 
-		group.GET("qrcode/:source", func(c *gin.Context) {
+		group.GET("qrcode/:source/:corpid", func(c *gin.Context) {
 			source := c.Param("source")
 			if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu"}) {
 				c.JSON(400, "Invalid login source")
@@ -95,9 +93,9 @@ func Router(router *gin.Engine) {
 		})
 
 		// Notify
-		group.Any("notify/:platform", func(c *gin.Context) {
-			platform := c.Param("platform")
-			if !util.StringInArray(c.Param("platform"), []string{"dingtalk", "wework", "feishu"}) {
+		group.Any("notify/:source/:corpid", func(c *gin.Context) {
+			source := c.Param("source")
+			if !util.StringInArray(source, []string{"dingtalk", "wework", "feishu"}) {
 				c.JSON(400, "Invalid notify platform")
 				return
 			}
@@ -106,7 +104,7 @@ func Router(router *gin.Engine) {
 			var data interface{}
 			var err error
 
-			switch platform {
+			switch source {
 			case "wework":
 				event, data, err = wework.Notify(c)
 				if err != nil {
@@ -136,56 +134,10 @@ func Router(router *gin.Engine) {
 				// TODO: service.UpdateDepart
 
 			case "create_user":
-				// TODO: service.CreateSource(data)
-				var userData struct {
-					Userid         string `json:"userid"`
-					Name           string `json:"name"`
-					Department     []uint `json:"department"`
-					Position       string `json:"position"`
-					Mobile         string `json:"mobile"`
-					Gender         string `json:"gender"`
-					Avatar         string `json:"avatar"`
-					Email          string `json:"email"`
-					IsLeaderInDept []uint `json:"is_leader_in_dept"`
-					Status         uint   `json:"status"`
-					Address        string `json:"address"`
-					OpenUserid     string `json:"open_userid"`
-				}
-				byts, _ := json.Marshal(data)
-				json.Unmarshal(byts, &userData)
-				id, err := service.Create(userData.Name, userData.Mobile, userData.Email, userData.Address)
-				if err != nil {
-					return
-				}
-
-				entity, err := service.repository.Get(id)
-				if err != nil {
-					return
-				}
-
-				switch userData.Gender {
-				case "male":
-					entity.SetToMale()
-				case "female":
-					entity.SetToFemale()
-				default:
-					entity.HideGender()
-				}
-
-				entity.UpdateAvatar(userData.Avatar)
-
-				// TODO: corpName
-				// TODO: isSupper
-				entity.AddSource("", "wework", userData.OpenUserid, 0)
-				corpRespository := corp.NewRepository()
-				corpEntity, _ := corpRespository.GetByName("")
-				corpGroups, _ := corp.NewRepository().GetAllGroup(corpEntity.Id, "source = ? and source_id = ?", "wework", "")
-				entity.FromSources[0].InGroup((*corpGroups)[0].Id, "", false)
-
-				service.repository.Save(entity)
+				service.CreateFromSource(source, data.(anti.User))
 
 			case "update_user":
-				// TODO: service.UpdateSource
+				service.UpdateFromSource(source, data.(anti.User))
 			}
 			c.JSON(200, data)
 

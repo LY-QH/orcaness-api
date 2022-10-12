@@ -13,26 +13,18 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
-	"gorm.io/gorm"
+	"gorm.io/datatypes"
+	"orcaness.com/api/app/anti"
 	"orcaness.com/api/util"
 )
 
 type Wework struct {
-	Departments []Department `json:"-"`
-}
-
-type Department struct {
-	gorm.Model
-	Name     string   `gorm:"column:name;type:varchar(128);not null" json:"name"`
-	ParentId uint8    `gorm:"column:parent_id;type:smallint;not null;default:0" json:"parent_id"`
-	Members  []Member `gorm:"-:all" json:"-"`
-}
-
-type Member struct {
 }
 
 type NotifyStruct struct {
@@ -56,17 +48,23 @@ func NewWework() *Wework {
 
 // Notify
 func (this *Wework) Notify(c *gin.Context) (string, interface{}, error) {
+	corpid := c.Param("corpid")
 	msg_signature := c.Query("msg_signature")
 	timestamp := c.Query("timestamp")
 	nonce := c.Query("nonce")
 	echostr := c.Query("echostr")
 
+	corpConfig, err := this.getConfig(corpid)
+	if err != nil {
+		return "", "", err
+	}
+
 	if c.Request.Method == "GET" && echostr != "" {
-		strs := []string{viper.GetString("wework.contacts_token"), timestamp, nonce, echostr}
+		strs := []string{corpConfig.ContactsToken, timestamp, nonce, echostr}
 		sort.Strings(strs)
 		dev_msg_signature := fmt.Sprintf("%02x", sha1.Sum([]byte(strings.Join(strs, ""))))
 		if dev_msg_signature == msg_signature {
-			decrypted, err := this.decrypt(echostr)
+			decrypted, err := this.decrypt(corpConfig.ContactsAeskey, echostr)
 			if err != nil {
 				return "echo_str", "", err
 			}
@@ -86,11 +84,11 @@ func (this *Wework) Notify(c *gin.Context) (string, interface{}, error) {
 		data := NotifyStruct{}
 		xml.NewDecoder(c.Request.Body).Decode(&data)
 
-		strs := []string{viper.GetString("wework.contacts_token"), timestamp, nonce, data.Encrypt}
+		strs := []string{corpConfig.ContactsToken, timestamp, nonce, data.Encrypt}
 		sort.Strings(strs)
 		dev_msg_signature := fmt.Sprintf("%02x", sha1.Sum([]byte(strings.Join(strs, ""))))
-		if data.ToUserName == viper.GetString("wework.corp_id") && data.AgentID == viper.GetString("wework.agent_id") && dev_msg_signature == msg_signature {
-			decrypted, err := this.decrypt(data.Encrypt)
+		if data.ToUserName == corpid && data.AgentID == corpConfig.AgentId && dev_msg_signature == msg_signature {
+			decrypted, err := this.decrypt(corpConfig.ContactsAeskey, data.Encrypt)
 			if err != nil {
 				return "", "", err
 			}
@@ -102,7 +100,7 @@ func (this *Wework) Notify(c *gin.Context) (string, interface{}, error) {
 			case "event":
 				switch detail.Event {
 				case "change_contact":
-					this.changeContact(decrypted)
+					return this.changeContact(corpid, decrypted)
 				}
 			}
 		}
@@ -112,7 +110,8 @@ func (this *Wework) Notify(c *gin.Context) (string, interface{}, error) {
 
 // Login
 func (this *Wework) Login(c *gin.Context) (string, error) {
-	accessToken, err := this.getAccessToken()
+	corpid := c.Param("corpid")
+	accessToken, err := this.getAccessToken(corpid)
 	if err != nil {
 		return "", err
 	}
@@ -143,17 +142,28 @@ func (this *Wework) Login(c *gin.Context) (string, error) {
 
 // Login qrcode
 func (this *Wework) LoginQrcode(c *gin.Context) (string, error) {
-	return fmt.Sprintf("https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid=%s&agentid=%s&redirect_uri=%s&state=%s", viper.GetString("wework.corp_id"), viper.GetString("wework.agent_id"), url.QueryEscape("https://"+viper.GetString("server.domain")+"/user/login/wework"), util.GenId()), nil
+	corpid := c.Param("corpid")
+	corpConfig, err := this.getConfig(corpid)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid=%s&agentid=%s&redirect_uri=%s&state=%s", corpid, corpConfig.AgentId, url.QueryEscape("https://"+viper.GetString("server.domain")+"/user/login/wework/"+corpid), util.GenId()), nil
 }
 
 // Get access token
-func (this *Wework) getAccessToken() (string, error) {
+func (this *Wework) getAccessToken(corpid string) (string, error) {
 	cache := this.getCache("access_token")
 	if cache != "" {
 		return cache, nil
 	}
 
-	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s", viper.GetString("wework.corp_id"), viper.GetString("wework.corp_secret"))
+	corpConfig, err := this.getConfig(corpid)
+	if err != nil {
+		return "", err
+	}
+
+	url := fmt.Sprintf("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s", corpid, corpConfig.CorpSecret)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -181,7 +191,7 @@ func (this *Wework) getAccessToken() (string, error) {
 }
 
 // ChangeContact
-func (this *Wework) changeContact(data []byte) error {
+func (this *Wework) changeContact(corpid string, body []byte) (event string, data interface{}, err error) {
 	var detail struct {
 		ChangeType string
 		CreateTime int64
@@ -191,29 +201,30 @@ func (this *Wework) changeContact(data []byte) error {
 		ParentId   string // party 事件(create/update)时存在
 	}
 
-	err := xml.Unmarshal(data, &detail)
+	err = xml.Unmarshal(body, &detail)
 	if err != nil {
-		return err
+		return
 	}
 
 	switch detail.ChangeType {
 	case "create_party", "update_party":
-		// 获取详情
-		this.getDepartment(detail.Id)
+		data, err = this.getDepartment(corpid, detail.Id)
+		return detail.ChangeType, data, err
 	case "delete_party":
-
+		return detail.ChangeType, detail.Id, err
 	case "create_user", "update_user":
-		// 获取详情
-		this.getUser(detail.UserID, detail.Department[len(detail.Department)-1])
+		data, err = this.getUser(corpid, detail.UserID, detail.Department[len(detail.Department)-1])
+		return detail.ChangeType, data, err
 	case "delete_user":
+		return detail.ChangeType, detail.UserID, err
 	}
 
-	return nil
+	return
 }
 
 // 获取部门详情
-func (this *Wework) getDepartment(id string) {
-	accessToken, err := this.getAccessToken()
+func (this *Wework) getDepartment(corpid string, id string) (dept anti.Department, err error) {
+	accessToken, err := this.getAccessToken(corpid)
 	if err != nil {
 		return
 	}
@@ -228,8 +239,10 @@ func (this *Wework) getDepartment(id string) {
 		Errcode    int    `json:"errcode"`
 		Errmsg     string `json:"errmsg"`
 		Department struct {
-			Name     string `json:"name"`
-			Parentid uint   `json:"parentid"`
+			Id               int      `json:"id"`
+			Name             string   `json:"name"`
+			Parentid         int      `json:"parentid"`
+			DepartmentLeader []string `json:"department_leader"`
 		} `json:"department"`
 	}
 
@@ -241,11 +254,20 @@ func (this *Wework) getDepartment(id string) {
 	if result.Errcode != 0 {
 		return
 	}
+
+	dept = anti.Department{}
+	dept.CorpId = corpid
+	dept.DeptId = strconv.Itoa(result.Department.Id)
+	dept.LeaderUserIds = result.Department.DepartmentLeader
+	dept.Name = result.Department.Name
+	dept.ParentId = strconv.Itoa(result.Department.Parentid)
+
+	return
 }
 
 // 获取部门详情
-func (this *Wework) getUser(id string, department uint) {
-	accessToken, err := this.getAccessToken()
+func (this *Wework) getUser(corpid string, id string, department uint) (user anti.User, err error) {
+	accessToken, err := this.getAccessToken(corpid)
 	if err != nil {
 		return
 	}
@@ -284,13 +306,26 @@ func (this *Wework) getUser(id string, department uint) {
 		return
 	}
 
-	for _, user := range result.Userlist {
-		if user.Userid == id {
-			user.Gender = strings.Replace(user.Gender, "1", "male", -1)
-			user.Gender = strings.Replace(user.Gender, "2", "female", -1)
+	for _, u := range result.Userlist {
+		if u.Userid == id {
+			user = anti.User{}
+			user.CorpId = corpid
+			user.UserId = id
+			user.Name = u.Name
+			user.Mobile = u.Mobile
+			user.Email = u.Email
+			user.Avatar = u.Avatar
+			user.DeptIds = u.Department
+			user.Gender = u.Gender
+			user.Openid = u.OpenUserid
+			user.Position = u.Position
+			user.Address = u.Address
+			user.JoinTime = datatypes.Date(time.Now())
 			return
 		}
 	}
+
+	return
 }
 
 // Get from cache
@@ -306,6 +341,28 @@ func (this *Wework) setCache(key string, value string, ttl int) {
 // key
 func (this *Wework) key(key string) string {
 	return key + "@wework." + viper.GetString("wework.corp_id")
+}
+
+type CorpConfigStruct struct {
+	CorpId         string `json:"corp_id"`
+	AgentId        string `json:"agent_id"`
+	CorpSecret     string `json:"corp_secret"`
+	ContactsSecret string `json:"contacts_secret"`
+	ContactsToken  string `json:"contacts_token"`
+	ContactsAeskey string `json:"contacts_aeskey"`
+}
+
+func (this *Wework) getConfig(corpid string) (config CorpConfigStruct, err error) {
+	result := map[string]interface{}{}
+	config = CorpConfigStruct{}
+
+	Db("read").Table("corp").Where("").Take(&result)
+	if result != nil && result["wework"] != nil {
+		return
+	}
+
+	json.Unmarshal([]byte(result["wework"].(string)), &config)
+	return
 }
 
 func aesDecrypt(cipherData []byte, aesKey []byte) ([]byte, error) {
@@ -327,8 +384,8 @@ func aesDecrypt(cipherData []byte, aesKey []byte) ([]byte, error) {
 	return plainData, nil
 }
 
-func (this *Wework) decrypt(encrypted string) ([]byte, error) {
-	aes_key := viper.GetString("wework.contacts_aeskey") + "="
+func (this *Wework) decrypt(aes_key string, encrypted string) ([]byte, error) {
+	aes_key += "="
 	aes_key_new, err := base64.StdEncoding.DecodeString(aes_key)
 	if err != nil {
 		fmt.Println(err)

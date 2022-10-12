@@ -32,6 +32,7 @@ type Group struct {
 	Source    string             `gorm:"column:source;type:enum('wework','dingtalk','feishu','default');not null;default:'default'" json:"source"`
 	SourceId  string             `gorm:"column:source_id;type:varchar(64);not null;default:''" json:"source_id"`
 	ParentId  string             `gorm:"column:parent_id;type:varchar(26);not null;default:''" json:"parent_id"`
+	AdminIds  []string           `gorm:"column:admin_ids;type:json" json:"admin_ids"`
 	CreatedAt time.Time          `json:"created_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	DeletedAt gorm.DeletedAt     `gorm:"index" json:"-"`
