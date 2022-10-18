@@ -1,6 +1,10 @@
 package corp
 
-import "orcaness.com/api/app/anti"
+import (
+	"errors"
+
+	"orcaness.com/api/app/anti"
+)
 
 type Service struct {
 	repository Repository
@@ -45,6 +49,19 @@ func (this *Service) AddGroup(source string, depart anti.Department) error {
 		return err
 	}
 
+	if depart.ParentId != "" {
+		parentGroup, err := this.repository.GetAllGroup(entity.Id, "source = ? and source_id = ?", source, depart.ParentId)
+		if err != nil {
+			return err
+		}
+
+		if len(*parentGroup) == 0 {
+			return errors.New("Parent group: " + depart.ParentId + " not exists")
+		}
+
+		depart.ParentId = (*parentGroup)[0].Id
+	}
+
 	entity.AddGroup(depart.Name, source, depart.DeptId, depart.ParentId)
 	this.repository.Save(entity)
 
@@ -63,7 +80,28 @@ func (this *Service) UpdateGroup(source string, depart anti.Department) error {
 		return err
 	}
 
+	if len(*groups) == 0 {
+		return this.AddGroup(source, depart)
+	}
+
 	group := (*groups)[0]
+
+	if depart.ParentId != "" {
+		parentGroup, err := this.repository.GetAllGroup(entity.Id, "source = ? and source_id = ?", source, depart.ParentId)
+		if err != nil {
+			return err
+		}
+
+		if len(*parentGroup) == 0 {
+			return errors.New("Parent group: " + depart.ParentId + " not exists")
+		}
+
+		depart.ParentId = (*parentGroup)[0].Id
+	}
+
+	if this.inChildren(entity.Id, source, depart.ParentId, group.Id) {
+		return errors.New("Parent id in children")
+	}
 
 	entity.UpdateGroup(&group, depart.Name, depart.ParentId)
 
@@ -91,4 +129,25 @@ func (this *Service) RemoveGroup(source string, depart anti.Department) error {
 	this.repository.Save(entity)
 
 	return nil
+}
+
+func (this *Service) inChildren(corpId string, source string, parentId string, currentGroupId string) bool {
+	children, err := this.repository.GetAllGroup(corpId, "source = ? and parent_id = ?", source, currentGroupId)
+	if err != nil {
+		return false
+	}
+
+	if len(*children) > 0 {
+		for _, child := range *children {
+			if child.Id == parentId {
+				return true
+			} else {
+				if this.inChildren(corpId, source, parentId, child.Id) {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }

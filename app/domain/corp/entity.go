@@ -209,7 +209,6 @@ func (this *Group) ModifyName(name string) (errcode Errcode) {
 
 // Modify group's parent
 func (this *Group) ModifyParent(parentId string) (errcode Errcode) {
-	// TODO: convert parentId
 	if parentId == this.Id {
 		return ERR_INVALID_PARENT_ID
 	}

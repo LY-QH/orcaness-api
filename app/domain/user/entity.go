@@ -395,8 +395,8 @@ func (this *FromSource) OutGroup(group InGroup) {
 	}
 
 	if !updated {
-		g.PushEvent("Outed")
-		this.InGroups = append(this.InGroups, g)
+		group.PushEvent("Outed")
+		this.InGroups = append(this.InGroups, group)
 	}
 }
 
