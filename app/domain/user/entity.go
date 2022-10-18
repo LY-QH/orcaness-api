@@ -351,9 +351,9 @@ func (this *Entity) RevokeToken(token string) {
 	}
 }
 
-func (this *Entity) RemoveSource(source string) {
+func (this *Entity) RemoveSource(corpId string, source string, openId string) {
 	for _, src := range this.FromSources {
-		if src.Source == source {
+		if src.CorpId == corpId && src.Source == source && src.OpenId == openId {
 			src.PushEvent("Removed")
 			break
 		}

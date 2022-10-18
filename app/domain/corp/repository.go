@@ -1,6 +1,8 @@
 package corp
 
 import (
+	"errors"
+
 	domain "orcaness.com/api/app/domain"
 	infra "orcaness.com/api/app/infra"
 )
@@ -26,6 +28,24 @@ func (this *Repository) GetByName(name string) (*Entity, error) {
 	entity := &Entity{}
 	infra.Db("read").Where("name = ?", name).First(entity)
 	return entity, nil
+}
+
+// Get by source
+func (this *Repository) GetBySource(source string, id string) (entity *Entity, err error) {
+	entity = &Entity{}
+
+	switch source {
+	case "wework":
+		infra.Db("read").Raw("select * from "+entity.TableName()+" where wework->'$.corp_id' = ?", id).Scan(&entity)
+	case "dingtalk":
+		infra.Db("read").Raw("select * from "+entity.TableName()+" where dingtalk->'$.corp_id' = ?", id).Scan(&entity)
+	case "feishu":
+		infra.Db("read").Raw("select * from "+entity.TableName()+" where feishu->'$.corp_id' = ?", id).Scan(&entity)
+	default:
+		err = errors.New("Invalid source")
+	}
+
+	return
 }
 
 // Get entity list by query condition

@@ -107,7 +107,16 @@ func (this *Service) CreateFromSource(source string, data anti.User) (id string,
 
 // Update from source
 func (this *Service) UpdateFromSource(source string, data anti.User) (id string, err error) {
-	entity, err := this.repository.Get(id)
+	// find corp
+	corpRespository := corp.NewRepository()
+	corpEntitys, err := corpRespository.GetAll("?", data.CorpId)
+	if err != nil {
+		return
+	}
+
+	corpEntity := (*corpEntitys)[0]
+
+	entity, err := this.repository.GetBySource(corpEntity.Id, source, data.Openid)
 	if err != nil {
 		return "", err
 	}
@@ -127,15 +136,6 @@ func (this *Service) UpdateFromSource(source string, data anti.User) (id string,
 	if data.Avatar != entity.Avatar {
 		entity.UpdateAvatar(data.Avatar)
 	}
-
-	// find corp
-	corpRespository := corp.NewRepository()
-	corpEntitys, err := corpRespository.GetAll("?", data.CorpId)
-	if err != nil {
-		return
-	}
-
-	corpEntity := (*corpEntitys)[0]
 
 	sources, err := service.repository.GetAllSource(entity.Id, "corp_id = ? and source = ? and open_id = ?", corpEntity.Id, source, data.Openid)
 	if len(*sources) == 0 {
@@ -193,6 +193,27 @@ func (this *Service) UpdateFromSource(source string, data anti.User) (id string,
 	err = this.repository.Save(entity)
 
 	return
+}
+
+// Remove from source
+func (this *Service) RemoveFromSource(source string, data anti.User) error {
+	// find corp
+	corpRespository := corp.NewRepository()
+	corpEntitys, err := corpRespository.GetAll("?", data.CorpId)
+	if err != nil {
+		return err
+	}
+
+	corpEntity := (*corpEntitys)[0]
+
+	entity, err := this.repository.GetBySource(corpEntity.Id, source, data.Openid)
+	if err != nil {
+		return err
+	}
+
+	entity.RemoveSource(corpEntity.Id, source, data.Openid)
+
+	return this.repository.Save(entity)
 }
 
 // Remove user

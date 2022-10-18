@@ -182,6 +182,19 @@ func (this *Entity) AddGroup(name string, source string, sourceId string, parent
 	return
 }
 
+// Update group
+func (this *Entity) UpdateGroup(group *Group, name string, parentId string) (errcode Errcode) {
+
+	errcode = group.ModifyName(name)
+	if errcode.Code != 0 {
+		return
+	}
+
+	errcode = group.ModifyParent(parentId)
+
+	return
+}
+
 // Remove group
 func (this *Entity) RemoveGroup(group *Group) error {
 	group.PushEvent("Removed")
@@ -196,13 +209,15 @@ func (this *Group) ModifyName(name string) (errcode Errcode) {
 
 // Modify group's parent
 func (this *Group) ModifyParent(parentId string) (errcode Errcode) {
-	if parentId != "" {
-		if parentId != this.Id {
-			return ERR_INVALID_PARENT_ID
-		}
-
-		this.ParentId = parentId
-		this.PushEvent("Updated parent id to: " + parentId)
+	// TODO: convert parentId
+	if parentId == this.Id {
+		return ERR_INVALID_PARENT_ID
 	}
+
+	// TODO: is child
+
+	this.ParentId = parentId
+	this.PushEvent("Updated parent id to: " + parentId)
+
 	return
 }

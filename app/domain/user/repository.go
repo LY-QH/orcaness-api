@@ -43,6 +43,18 @@ func (this *Repository) GetByToken(token string) (entity *Entity, err error) {
 	return entity, err
 }
 
+// Get one entity by source
+func (this *Repository) GetBySource(corpId string, source string, openId string) (entity *Entity, err error) {
+	sourceObj := FromSource{}
+	infra.Db("read").Where("corp_id = ? and source = ? and open_id = ?", corpId, source, openId).First(&sourceObj)
+	if sourceObj.Id == "" {
+		return entity, nil
+	}
+
+	entity, err = this.Get(sourceObj.UserId)
+	return entity, err
+}
+
 // Get entity list by query condition
 func (this *Repository) GetAll(query ...interface{}) (*[]Entity, error) {
 	entities := &[]Entity{}

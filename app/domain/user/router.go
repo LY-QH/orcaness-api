@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"orcaness.com/api/app/anti"
+	"orcaness.com/api/app/domain/corp"
 	infra "orcaness.com/api/app/infra"
 	util "orcaness.com/api/util"
 
@@ -12,8 +13,9 @@ import (
 )
 
 var (
-	service = NewService()
-	wework  = infra.NewWework()
+	service     = NewService()
+	corpService = corp.NewService()
+	wework      = infra.NewWework()
 )
 
 func Router(router *gin.Engine) {
@@ -129,15 +131,22 @@ func Router(router *gin.Engine) {
 
 			switch event {
 			case "create_department":
-				// TODO: service.CreateDepart
+				corpService.AddGroup(source, data.(anti.Department))
+
 			case "update_department":
-				// TODO: service.UpdateDepart
+				corpService.UpdateGroup(source, data.(anti.Department))
+
+			case "delete_department":
+				corpService.RemoveGroup(source, data.(anti.Department))
 
 			case "create_user":
 				service.CreateFromSource(source, data.(anti.User))
 
 			case "update_user":
 				service.UpdateFromSource(source, data.(anti.User))
+
+			case "delete_user":
+				service.RemoveFromSource(source, data.(anti.User))
 			}
 			c.JSON(200, data)
 
