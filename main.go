@@ -31,7 +31,7 @@ func main() {
 
 	env := os.Getenv("GIN_MODE")
 	if env == "" {
-		env = os.Args[0]
+		env = os.Args[1]
 	}
 
 	if env != "release" {
