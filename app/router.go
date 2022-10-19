@@ -42,8 +42,6 @@ func CollectRoute(router *gin.Engine) {
 	UserDomain.Router(router)
 
 	router.GET("/test", func(c *gin.Context) {
-		// Shutdown old process
-		os.Exit(0)
 	})
 
 	// wework domain validate
