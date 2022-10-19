@@ -100,6 +100,8 @@ func CollectRoute(router *gin.Engine) {
 					return
 				}
 
+				fmt.Println("build done.")
+
 				// Shutdown old process
 				os.Exit(0)
 			}
