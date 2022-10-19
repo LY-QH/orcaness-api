@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+	git "gopkg.in/src-d/go-git.v4"
 	UserDomain "orcaness.com/api/app/domain/user"
 )
 
@@ -62,11 +63,28 @@ func CollectRoute(router *gin.Engine) {
 			reqBody, _ := ioutil.ReadAll(c.Request.Body)
 			genSignature.Write(reqBody)
 			newSignature := hex.EncodeToString(genSignature.Sum(nil))
-			if signature != newSignature {
-				fmt.Println("Not match: ", signature, " | ", newSignature)
-			}
+			if signature == newSignature {
+				// We instance a new repository targeting the given path (the .git folder)
+				r, err := git.PlainOpen("/data/web/orcaness-api")
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
 
-			fmt.Println("body: ", string(reqBody))
+				// Get the working directory for the repository
+				w, err := r.Worktree()
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+
+				// Pull the latest changes from the origin remote and merge into the current branch
+				err = w.Pull(&git.PullOptions{RemoteName: "origin"})
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+			}
 		}
 
 		c.JSON(200, "ok")
