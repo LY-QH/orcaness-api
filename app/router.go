@@ -71,7 +71,7 @@ func CollectRoute(router *gin.Engine) {
 				r, err := git.PlainOpen(path)
 				if err != nil {
 					fmt.Println(err)
-					c.JSON(200, "ok")
+					c.JSON(200, "open not ok: "+path)
 					return
 				}
 
@@ -79,7 +79,7 @@ func CollectRoute(router *gin.Engine) {
 				w, err := r.Worktree()
 				if err != nil {
 					fmt.Println(err)
-					c.JSON(200, "ok")
+					c.JSON(200, "worktree not ok")
 					return
 				}
 
@@ -87,7 +87,7 @@ func CollectRoute(router *gin.Engine) {
 				err = w.Pull(&git.PullOptions{RemoteName: "origin"})
 				if err != nil {
 					fmt.Println(err)
-					c.JSON(200, "ok")
+					c.JSON(200, "pull not ok")
 					return
 				}
 
@@ -96,7 +96,7 @@ func CollectRoute(router *gin.Engine) {
 				err = cmd.Run()
 				if err != nil {
 					fmt.Println(err)
-					c.JSON(200, "ok")
+					c.JSON(200, "build not ok")
 					return
 				}
 
