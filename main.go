@@ -29,8 +29,19 @@ func main() {
 		"release": "prod",
 	}
 
+	env := os.Getenv("GIN_MODE")
+	if env == "" {
+		env = os.Args[0]
+	}
+
+	if env != "release" {
+		env = "debug"
+	}
+
+	gin.SetMode(env)
+
 	// Load environment configration
-	viper.SetConfigName(fmt.Sprintf("app.%s", envMap[os.Getenv("GIN_MODE")]))
+	viper.SetConfigName(fmt.Sprintf("app.%s", envMap[env]))
 	if err := viper.ReadInConfig(); err == nil {
 		newConfig := viper.AllSettings()
 
