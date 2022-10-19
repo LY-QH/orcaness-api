@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +42,8 @@ func CollectRoute(router *gin.Engine) {
 	UserDomain.Router(router)
 
 	router.GET("/test", func(c *gin.Context) {
+		// Shutdown old process
+		os.Exit(0)
 	})
 
 	// wework domain validate
@@ -64,10 +68,12 @@ func CollectRoute(router *gin.Engine) {
 			genSignature.Write(reqBody)
 			newSignature := hex.EncodeToString(genSignature.Sum(nil))
 			if signature == newSignature {
+				path := "/data/web/orcaness-api"
 				// We instance a new repository targeting the given path (the .git folder)
-				r, err := git.PlainOpen("/data/web/orcaness-api")
+				r, err := git.PlainOpen(path)
 				if err != nil {
 					fmt.Println(err)
+					c.JSON(200, "ok")
 					return
 				}
 
@@ -75,6 +81,7 @@ func CollectRoute(router *gin.Engine) {
 				w, err := r.Worktree()
 				if err != nil {
 					fmt.Println(err)
+					c.JSON(200, "ok")
 					return
 				}
 
@@ -82,8 +89,21 @@ func CollectRoute(router *gin.Engine) {
 				err = w.Pull(&git.PullOptions{RemoteName: "origin"})
 				if err != nil {
 					fmt.Println(err)
+					c.JSON(200, "ok")
 					return
 				}
+
+				// Build
+				cmd := exec.Command(path + "/shell/build-prod.sh")
+				err = cmd.Run()
+				if err != nil {
+					fmt.Println(err)
+					c.JSON(200, "ok")
+					return
+				}
+
+				// Shutdown old process
+				os.Exit(0)
 			}
 		}
 
