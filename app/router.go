@@ -68,7 +68,7 @@ func CollectRoute(router *gin.Engine) {
 			genSignature.Write(reqBody)
 			newSignature := hex.EncodeToString(genSignature.Sum(nil))
 			if signature == newSignature {
-				path := "/data/web/orcaness-api"
+				path, _ := os.Getwd()
 				// We instance a new repository targeting the given path (the .git folder)
 				r, err := git.PlainOpen(path)
 				if err != nil {
