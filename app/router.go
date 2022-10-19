@@ -39,8 +39,6 @@ func CollectRoute(router *gin.Engine) {
 	UserDomain.Router(router)
 
 	router.GET("/test", func(c *gin.Context) {
-		strs := []string{"a", "b", "c"}
-		fmt.Print(strs[0:2])
 	})
 
 	// wework domain validate
@@ -56,17 +54,20 @@ func CollectRoute(router *gin.Engine) {
 
 	router.POST("/build", func(c *gin.Context) {
 		signature := c.Request.Header.Get("x-hub-signature-256")
-		token := viper.GetString("github.build_token")
+		if len(signature) > 7 && strings.HasPrefix(signature, "sha256=") {
+			signature = signature[7:]
+			token := viper.GetString("github.build_token")
 
-		genSignature := hmac.New(sha256.New, []byte(token))
-		reqBody, _ := ioutil.ReadAll(c.Request.Body)
-		genSignature.Write(reqBody)
-		newSignature := hex.EncodeToString(genSignature.Sum(nil))
-		if signature != newSignature {
-			fmt.Println("Not match: ", signature, " | ", newSignature)
+			genSignature := hmac.New(sha256.New, []byte(token))
+			reqBody, _ := ioutil.ReadAll(c.Request.Body)
+			genSignature.Write(reqBody)
+			newSignature := hex.EncodeToString(genSignature.Sum(nil))
+			if signature != newSignature {
+				fmt.Println("Not match: ", signature, " | ", newSignature)
+			}
+
+			fmt.Println("body: ", string(reqBody))
 		}
-
-		fmt.Println("body: ", string(reqBody))
 
 		c.JSON(200, "ok")
 	})
