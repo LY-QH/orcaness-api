@@ -42,3 +42,6 @@ wework:
   contacts_secret: Nc0Q4bxPPFI8pVANU2xbqod1JAWDANu0HUdEDo66_cc
   contacts_token: YDboX2dHBDGiDWoUVEt
   contacts_aeskey: 3xoJTM2sVT2WNxbmSZUnybLu3JvW9Ww21RzBGgHLJNL
+
+github:
+  build_token:

@@ -2,10 +2,15 @@ package app
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 	UserDomain "orcaness.com/api/app/domain/user"
 )
 
@@ -47,6 +52,23 @@ func CollectRoute(router *gin.Engine) {
 		}
 
 		c.String(200, code[0:len(code)-4])
+	})
+
+	router.POST("/build", func(c *gin.Context) {
+		signature := c.Request.Header.Get("x-hub-signature-256")
+		token := viper.GetString("github.build_token")
+
+		genSignature := hmac.New(sha256.New, []byte(token))
+		reqBody, _ := ioutil.ReadAll(c.Request.Body)
+		genSignature.Write(reqBody)
+		newSignature := hex.EncodeToString(genSignature.Sum(nil))
+		if signature != newSignature {
+			fmt.Println("Not match: ", signature, " | ", newSignature)
+		}
+
+		fmt.Println("body: ", string(reqBody))
+
+		c.JSON(200, "ok")
 	})
 
 	router.NoRoute(func(c *gin.Context) {
