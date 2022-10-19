@@ -44,7 +44,7 @@ func CollectRoute(router *gin.Engine) {
 	router.GET("/test", func(c *gin.Context) {
 	})
 
-	// wework domain validate
+	// wework domain validation
 	router.GET("/WW_verify_:code", func(c *gin.Context) {
 		code := c.Param("code")
 		if !strings.HasSuffix(code, ".txt") {
