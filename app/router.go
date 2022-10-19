@@ -42,6 +42,7 @@ func CollectRoute(router *gin.Engine) {
 	UserDomain.Router(router)
 
 	router.GET("/test", func(c *gin.Context) {
+
 	})
 
 	// wework domain validation
